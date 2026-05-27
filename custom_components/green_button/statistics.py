@@ -1240,14 +1240,10 @@ async def _generate_statistics_data(
     # Sort readings by start time to ensure chronological order
     all_readings.sort(key=lambda r: r.start)
 
-    # Determine cutoff at the end of the last FULL hour covered by the data
-    # Any intervals ending after this cutoff are considered part of a partial hour and skipped
-    last_end: datetime.datetime = max(r.end for r in all_readings)
-    cutoff_end: datetime.datetime = last_end.replace(minute=0, second=0, microsecond=0)
-
-    # If the last interval ends exactly on an hour boundary, we can include it
-    # Otherwise, we skip the trailing partial hour
-    include_trailing_hour = last_end == cutoff_end
+    # Include ALL hours including the trailing partial hour.
+    # Partial hours are scaled proportionally (see coverage scaling below),
+    # so we no longer need to drop the trailing partial hour.
+    # This ensures the most recent data (which users care about most) is always visible.
 
     # Build hourly buckets with coverage tracking (seconds covered in the hour)
     hourly_kwh: dict[datetime.datetime, decimal.Decimal] = {}
@@ -1261,30 +1257,6 @@ async def _generate_statistics_data(
     )
 
     for reading in all_readings:
-        # Skip intervals that end after the cutoff if we don't include trailing hour
-        if not include_trailing_hour and reading.end > cutoff_end:
-            # If the reading overlaps the cutoff boundary, trim to cutoff
-            if reading.start < cutoff_end < reading.end:
-                # Split proportionally: keep portion up to cutoff
-                total_seconds = (reading.end - reading.start).total_seconds()
-                kept_seconds = (cutoff_end - reading.start).total_seconds()
-                if total_seconds > 0:
-                    proportion = decimal.Decimal(kept_seconds / total_seconds)
-                else:
-                    proportion = decimal.Decimal(0)
-                base_value = data_extractor.get_native_value(reading)
-                value_kwh = decimal.Decimal(
-                    _convert_to_kwh(float(base_value), source_unit)
-                )
-                kept_kwh = value_kwh * proportion
-                # Bucket kept portion into hour of cutoff_end - 1 hour
-                hour_start = (cutoff_end - datetime.timedelta(hours=1)).replace(
-                    minute=0, second=0, microsecond=0
-                )
-                hourly_kwh[hour_start] = hourly_kwh.get(hour_start, decimal.Decimal(0)) + kept_kwh
-                hourly_coverage_seconds[hour_start] = hourly_coverage_seconds.get(hour_start, 0) + int(kept_seconds)
-            # Skip the remainder
-            continue
 
         # Potentially split a reading that spans multiple hours
         curr_start = reading.start
@@ -1311,24 +1283,37 @@ async def _generate_statistics_data(
 
             curr_start = segment_end
 
-    # Build new statistics for FULLY covered hours only (3600s)
+    # Build statistics for all hours with data, scaling partial hours proportionally
+    # Instead of dropping hours with <3600s coverage, we scale their kWh value
+    # to estimate full-hour consumption. This prevents data loss when a single
+    # 15-min reading is missing from DTE's interval data.
     hour_keys_sorted = sorted(hourly_kwh.keys())
     if not hour_keys_sorted:
         return []
 
     new_statistics_data: list[StatisticData] = []
-    skipped_count = 0
+    scaled_count = 0
     for hour_start in hour_keys_sorted:
         coverage = hourly_coverage_seconds.get(hour_start, 0)
-        if coverage < 3600:
+        hour_kwh = float(hourly_kwh.get(hour_start, decimal.Decimal(0)))
+        if coverage < 3600 and coverage > 0:
+            # Scale partial hour proportionally to estimate full-hour consumption
+            scale_factor = 3600 / coverage
+            hour_kwh = hour_kwh * scale_factor
+            scaled_count += 1
             _LOGGER.debug(
-                "Skipping partial hour starting %s (covered %ds)",
+                "Scaling partial hour starting %s (covered %ds, scale=%.2fx, %.3f kWh estimated)",
                 hour_start,
                 coverage,
+                scale_factor,
+                hour_kwh,
             )
-            skipped_count += 1
+        elif coverage == 0:
+            _LOGGER.debug(
+                "Skipping zero-coverage hour starting %s",
+                hour_start,
+            )
             continue
-        hour_kwh = float(hourly_kwh.get(hour_start, decimal.Decimal(0)))
         stat_record: StatisticData = {
             "start": hour_start,
             "state": hour_kwh,
@@ -1338,9 +1323,9 @@ async def _generate_statistics_data(
 
     if not new_statistics_data:
         _LOGGER.info(
-            "No complete hourly statistics generated for entity %s (skipped %d partial hours)",
+            "No hourly statistics generated for entity %s (scaled %d partial hours)",
             entity.entity_id,
-            skipped_count,
+            scaled_count,
         )
         return []
 
@@ -1359,10 +1344,10 @@ async def _generate_statistics_data(
 
     # Log summary of what was processed
     _LOGGER.debug(
-        "Generated %d hourly statistics for entity %s (skipped %d partial hours, existing: %d, merged result: %d)",
+        "Generated %d hourly statistics for entity %s (scaled %d partial hours, existing: %d, merged result: %d)",
         len(new_statistics_data),
         entity.entity_id,
-        skipped_count,
+        scaled_count,
         len(existing_stats),
         len(merged_stats),
     )
@@ -1420,45 +1405,15 @@ async def _generate_statistics_data_cost(
     # Sort readings by start time
     all_readings.sort(key=lambda r: r.start)
 
-    # Determine cutoff at the end of the last FULL hour covered by the data
-    last_end: datetime.datetime = max(r.end for r in all_readings)
-    cutoff_end: datetime.datetime = last_end.replace(minute=0, second=0, microsecond=0)
-    include_trailing_hour = last_end == cutoff_end
-
-    _LOGGER.debug(
-        "Cost statistics: Last end time = %s, cutoff_end = %s, include_trailing_hour = %s",
-        last_end,
-        cutoff_end,
-        include_trailing_hour,
-    )
+    # Include ALL hours including the trailing partial hour.
+    # Partial hours are scaled proportionally (see coverage scaling below),
+    # so we no longer need to drop the trailing partial hour.
 
     # Build hourly buckets with coverage tracking
     hourly_cost: dict[datetime.datetime, decimal.Decimal] = {}
     hourly_coverage_seconds: dict[datetime.datetime, int] = {}
 
     for reading in all_readings:
-        # Skip intervals that end after the cutoff if not including trailing hour
-        if not include_trailing_hour and reading.end > cutoff_end:
-            if reading.start < cutoff_end < reading.end:
-                # Keep portion up to cutoff
-                total_seconds = (reading.end - reading.start).total_seconds()
-                kept_seconds = (cutoff_end - reading.start).total_seconds()
-                if total_seconds > 0:
-                    proportion = decimal.Decimal(kept_seconds / total_seconds)
-                else:
-                    proportion = decimal.Decimal(0)
-                base_value = data_extractor.get_native_value(reading)
-                kept_val = base_value * proportion
-                hour_start = (cutoff_end - datetime.timedelta(hours=1)).replace(
-                    minute=0, second=0, microsecond=0
-                )
-                hourly_cost[hour_start] = hourly_cost.get(
-                    hour_start, decimal.Decimal(0)
-                ) + kept_val
-                hourly_coverage_seconds[hour_start] = hourly_coverage_seconds.get(
-                    hour_start, 0
-                ) + int(kept_seconds)
-            continue
 
         # Split a reading that may span multiple hours proportionally
         curr_start = reading.start
@@ -1485,7 +1440,7 @@ async def _generate_statistics_data_cost(
 
             curr_start = segment_end
 
-    # Build new statistics for FULLY covered hours only (3600s)
+    # Build statistics for all hours with data, scaling partial hours proportionally
     hour_keys_sorted = sorted(hourly_cost.keys())
     if not hour_keys_sorted:
         _LOGGER.warning(
@@ -1500,18 +1455,27 @@ async def _generate_statistics_data_cost(
     )
 
     new_statistics_data: list[StatisticData] = []
-    skipped_count = 0
+    scaled_count = 0
     for hour_start in hour_keys_sorted:
         coverage = hourly_coverage_seconds.get(hour_start, 0)
-        if coverage < 3600:
+        hour_val = float(hourly_cost.get(hour_start, decimal.Decimal(0)))
+        if coverage < 3600 and coverage > 0:
+            # Scale partial hour proportionally to estimate full-hour cost
+            scale_factor = 3600 / coverage
+            hour_val = hour_val * scale_factor
+            scaled_count += 1
             _LOGGER.debug(
-                "Cost statistics: Skipping partial hour starting %s (covered %ds)",
+                "Cost statistics: Scaling partial hour starting %s (covered %ds, scale=%.2fx)",
                 hour_start,
                 coverage,
+                scale_factor,
             )
-            skipped_count += 1
+        elif coverage == 0:
+            _LOGGER.debug(
+                "Cost statistics: Skipping zero-coverage hour starting %s",
+                hour_start,
+            )
             continue
-        hour_val = float(hourly_cost.get(hour_start, decimal.Decimal(0)))
         stat_record: StatisticData = {
             "start": hour_start,
             "state": hour_val,
@@ -1520,17 +1484,17 @@ async def _generate_statistics_data_cost(
         new_statistics_data.append(stat_record)
 
     _LOGGER.info(
-        "Cost statistics: Generated %d complete hourly records (skipped %d partial hours) for entity %s",
+        "Cost statistics: Generated %d hourly records (scaled %d partial hours) for entity %s",
         len(new_statistics_data),
-        skipped_count,
+        scaled_count,
         entity.entity_id,
     )
 
     if not new_statistics_data:
         _LOGGER.info(
-            "No complete hourly cost statistics generated for entity %s (skipped %d partial hours)",
+            "No hourly cost statistics generated for entity %s (scaled %d partial hours)",
             entity.entity_id,
-            skipped_count,
+            scaled_count,
         )
         return []
 
@@ -1550,10 +1514,10 @@ async def _generate_statistics_data_cost(
 
         # Log summary of what was processed
         _LOGGER.info(
-            "Generated %d hourly cost statistics for entity %s (skipped %d partial hours, existing: %d, merged result: %d)",
+            "Generated %d hourly cost statistics for entity %s (scaled %d partial hours, existing: %d, merged result: %d)",
             len(new_statistics_data),
             entity.entity_id,
-            skipped_count,
+            scaled_count,
             len(existing_stats),
             len(merged_stats),
         )
@@ -1564,10 +1528,10 @@ async def _generate_statistics_data_cost(
         )
         merged_stats = _calculate_running_sum(new_statistics_data)
         _LOGGER.info(
-            "Generated %d hourly cost statistics for entity %s (skipped %d partial hours, recalculation mode)",
+            "Generated %d hourly cost statistics for entity %s (scaled %d partial hours, recalculation mode)",
             len(merged_stats),
             entity.entity_id,
-            skipped_count,
+            scaled_count,
         )
     
     if merged_stats:
