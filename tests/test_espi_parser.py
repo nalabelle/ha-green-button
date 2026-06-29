@@ -5,14 +5,10 @@ Tests that the parser correctly includes monthly electricity data
 not just sub-daily intervals.
 """
 
-import datetime
 import textwrap
 from xml.etree import ElementTree as ET
 
-import pytest
-
-from custom_components.green_button.parsers.espi import EspiEntry, GreenButtonFeed
-
+from custom_components.green_button.parsers.espi import GreenButtonFeed
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +45,7 @@ def _make_espi_xml(
 
     usage_point_block = ""
     if include_usage_point:
-        usage_point_block = textwrap.dedent(f"""\
+        usage_point_block = textwrap.dedent("""\
             <atom:entry>
               <atom:id>urn:uuid:up-001</atom:id>
               <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001"/>
@@ -149,7 +145,9 @@ class TestUsagePointWithMeterReading:
         This was previously rejected by the < 86400 filter, causing zero sensors.
         """
         xml = _make_espi_xml(
-            interval_length=2678400, flow_direction=1, commodity=1,
+            interval_length=2678400,
+            flow_direction=1,
+            commodity=1,
             interval_duration=2678400,
         )
         feed = _parse_feed(xml)
@@ -179,7 +177,9 @@ class TestUsagePointWithMeterReading:
     def test_daily_gas_accepted(self):
         """Daily gas (flowDirection=1, intervalLength=86400) should be included."""
         xml = _make_espi_xml(
-            interval_length=86400, flow_direction=1, commodity=1,
+            interval_length=86400,
+            flow_direction=1,
+            commodity=1,
             # ServiceCategory kind=1 signals gas in some feeds, but commodity in
             # ReadingType is what matters for the gas path. We test via the
             # UsagePoint's ServiceCategory by modifying the XML.
@@ -187,7 +187,7 @@ class TestUsagePointWithMeterReading:
         # For gas, we need ServiceCategory kind=1 (gas) in the UsagePoint
         # The test helper uses kind=0 (electricity) by default.
         # We'll build the XML manually for gas.
-        xml = textwrap.dedent(f"""\
+        xml = textwrap.dedent("""\
             <?xml version="1.0" encoding="UTF-8"?>
             <atom:feed xmlns:atom="http://www.w3.org/2005/Atom"
                        xmlns:espi="http://naesb.org/espi">
@@ -254,7 +254,7 @@ class TestUsagePointWithMeterReading:
         Gas data uses daily intervals; hourly gas readings are likely net metering
         or other artifacts that should not create gas sensors.
         """
-        xml = textwrap.dedent(f"""\
+        xml = textwrap.dedent("""\
             <?xml version="1.0" encoding="UTF-8"?>
             <atom:feed xmlns:atom="http://www.w3.org/2005/Atom"
                        xmlns:espi="http://naesb.org/espi">
@@ -342,7 +342,9 @@ class TestDefaultUsagePoint:
         a 'daily summary' to be excluded.
         """
         xml = _make_espi_xml(
-            interval_length=2678400, flow_direction=1, include_usage_point=False,
+            interval_length=2678400,
+            flow_direction=1,
+            include_usage_point=False,
             interval_duration=2678400,
         )
         feed = _parse_feed(xml)

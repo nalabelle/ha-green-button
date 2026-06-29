@@ -1,21 +1,13 @@
 {
   "domain": "green_button",
   "name": "Green Button",
-  "codeowners": [
-    "@rhounsell"
-  ],
+  "codeowners": ["@rhounsell"],
   "config_flow": true,
-  "dependencies": [
-    "recorder"
-  ],
+  "dependencies": ["recorder"],
   "documentation": "https://github.com/nalabelle/ha-green-button",
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/nalabelle/ha-green-button/issues",
-  "loggers": [
-    "custom_components.green_button"
-  ],
-  "requirements": [
-    "defusedxml==0.7.1"
-  ],
+  "loggers": ["custom_components.green_button"],
+  "requirements": ["defusedxml==0.7.1"],
   "version": "1.2.0"
 }

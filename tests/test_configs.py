@@ -1,6 +1,7 @@
 """Unit tests for configs.py in green_button integration."""
-import pytest
+
 from homeassistant.components import sensor
+
 from custom_components.green_button.configs import (
     InvalidUserInputError,
     MeterReadingConfig,
@@ -27,7 +28,8 @@ def test_meter_reading_config_fields():
 def test_meter_reading_config_dataclass():
     # Create a config and check fields
     # Create a dummy ReadingType and MeterReading for initial_meter_reading
-    from custom_components.green_button.model import ReadingType, MeterReading
+    from custom_components.green_button.model import MeterReading, ReadingType
+
     reading_type = ReadingType(
         id="rt1",
         commodity=1,
@@ -36,17 +38,13 @@ def test_meter_reading_config_dataclass():
         unit_of_measurement="kWh",
         interval_length=3600,
     )
-    meter_reading = MeterReading(
-        id="meter1",
-        reading_type=reading_type,
-        interval_blocks=[]
-    )
+    meter_reading = MeterReading(id="meter1", reading_type=reading_type, interval_blocks=[])
     config = MeterReadingConfig(
         id="meter1",
         sensor_device_class=sensor.SensorDeviceClass.ENERGY,
         unit_of_measurement="kWh",
         currency="CAD",
-        initial_meter_reading=meter_reading
+        initial_meter_reading=meter_reading,
     )
     assert config.id == "meter1"
     assert config.sensor_device_class == sensor.SensorDeviceClass.ENERGY
@@ -57,13 +55,13 @@ def test_meter_reading_config_dataclass():
 
 def test_meter_reading_config_to_mapping():
     from homeassistant.components import sensor
-    from custom_components.green_button.model import ReadingType, MeterReading
+
     config = MeterReadingConfig(
         id="meter1",
         sensor_device_class=sensor.SensorDeviceClass.ENERGY,
         unit_of_measurement="kWh",
         currency="CAD",
-        initial_meter_reading=None
+        initial_meter_reading=None,
     )
     mapping = config.to_mapping()
     assert mapping["id"] == "meter1"
@@ -74,12 +72,14 @@ def test_meter_reading_config_to_mapping():
 
 def test_meter_reading_config_from_mapping():
     from homeassistant.components import sensor
+
     from custom_components.green_button.model import UsagePoint
+
     mapping = {
         "id": "meter1",
         "sensor_device_class": sensor.SensorDeviceClass.ENERGY.value,
         "unit_of_measurement": "kWh",
-        "currency": "CAD"
+        "currency": "CAD",
     }
     usage_point = UsagePoint.default_usage_point()
     config = MeterReadingConfig.from_mapping(mapping, usage_point)
@@ -92,7 +92,9 @@ def test_meter_reading_config_from_mapping():
 
 def test_meter_reading_config_from_model():
     from homeassistant.components import sensor
+
     from custom_components.green_button.model import UsagePoint
+
     usage_point = UsagePoint.default_usage_point()
     meter_reading = usage_point.meter_readings[0]
     config = MeterReadingConfig.from_model(usage_point, meter_reading)

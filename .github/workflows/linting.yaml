@@ -7,57 +7,41 @@ on:
       - master
       - dev
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
 
 env:
   DEFAULT_PYTHON: "3.12"
 
 jobs:
-  pre-commit:
+  ruff:
     runs-on: "ubuntu-latest"
-    name: Pre-commit
+    name: "Ruff lint & format"
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v5
+      - uses: "actions/checkout@v4"
+      - name: "Set up Python"
+        uses: "actions/setup-python@v5"
         with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
-
-      - name: Upgrade pip
-        run: |
-          pip install --constraint=.github/workflows/constraints.txt pip
-          pip --version
-
-      - name: Install Python modules
-        run: |
-          pip install --constraint=.github/workflows/constraints.txt pre-commit black flake8 reorder-python-imports
-
-      - name: Run pre-commit on all files
-        run: |
-          pre-commit run --all-files --show-diff-on-failure --color=always
-
-  hacs:
-    runs-on: "ubuntu-latest"
-    name: HACS
-    steps:
-      - name: Check out the repository
-        uses: "actions/checkout@v4"
-
-      - name: HACS validation
-        uses: "hacs/action@main"
-        with:
-          category: "integration"
-          ignore: brands
+          python-version: "${{ env.DEFAULT_PYTHON }}"
+      - name: "Install ruff"
+        run: pip install ruff
+      - name: "Ruff check"
+        run: ruff check custom_components/ tests/
+      - name: "Ruff format check"
+        run: ruff format --check custom_components/ tests/
 
   hassfest:
     runs-on: "ubuntu-latest"
-    name: Hassfest
+    name: "Hassfest validation"
     steps:
-      - name: Check out the repository
-        uses: "actions/checkout@v4"
-
-      - name: Hassfest validation
+      - uses: "actions/checkout@v4"
+      - name: "Hassfest validation"
         uses: "home-assistant/actions/hassfest@master"
+
+  hacs:
+    runs-on: "ubuntu-latest"
+    name: "HACS validation"
+    steps:
+      - uses: "actions/checkout@v4"
+      - name: "HACS validation"
+        uses: "hacs/action@main"
+        with:
+          category: "integration"

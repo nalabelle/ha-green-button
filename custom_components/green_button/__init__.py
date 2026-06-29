@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 
+import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN
 from .coordinator import GreenButtonCoordinator
@@ -22,7 +22,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Green Button component.
-    
+
     Args:
         hass: Home Assistant instance
         config: Configuration dict (not used - this is a config-entry-based integration)

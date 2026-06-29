@@ -7,8 +7,6 @@ on:
       - master
       - dev
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
 
 env:
   DEFAULT_PYTHON: "3.12"
@@ -16,21 +14,23 @@ env:
 jobs:
   tests:
     runs-on: "ubuntu-latest"
-    name: Run tests
+    name: "Python ${{ matrix.python-version }}"
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
-      - name: Check out code from GitHub
-        uses: "actions/checkout@v4"
-      - name: Setup Python ${{ env.DEFAULT_PYTHON }}
+      - uses: "actions/checkout@v4"
+      - name: "Set up Python ${{ matrix.python-version }}"
         uses: "actions/setup-python@v5"
         with:
-          python-version: ${{ env.DEFAULT_PYTHON }}
-      - name: Install requirements
+          python-version: "${{ matrix.python-version }}"
+      - name: "Install requirements"
         run: |
-          pip install --constraint=.github/workflows/constraints.txt pip
           pip install -r requirements_test.txt
-      - name: Tests suite
+      - name: "Run tests"
         run: |
-          pytest \
+          python -m pytest tests/ \
+            -v \
             --timeout=9 \
             --durations=10 \
             -p no:sugar \

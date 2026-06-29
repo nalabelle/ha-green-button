@@ -1,4 +1,5 @@
 """Global fixtures for green_button integration."""
+
 from unittest.mock import patch
 
 import pytest
