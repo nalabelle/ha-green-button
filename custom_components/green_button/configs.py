@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import dataclasses
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, Final, final
 
+import voluptuous as vol
 from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import selector
-import voluptuous as vol
 
 from . import model
 from .parsers import espi
@@ -61,9 +61,7 @@ class MeterReadingConfig:
         meter_reading_id = data[_MeterReadingConfigField.ID]
         initial_meter_reading = None
         if initial_usage_point is not None:
-            initial_meter_reading = initial_usage_point.get_meter_reading_by_id(
-                meter_reading_id
-            )
+            initial_meter_reading = initial_usage_point.get_meter_reading_by_id(meter_reading_id)
         return MeterReadingConfig(
             id=meter_reading_id,
             sensor_device_class=sensor.SensorDeviceClass(
@@ -119,9 +117,7 @@ class ComponentConfig:
         }
 
     @classmethod
-    def make_config_entry_step_schema(
-        cls, user_input: dict[str, Any] | None
-    ) -> vol.Schema:
+    def make_config_entry_step_schema(cls, user_input: dict[str, Any] | None) -> vol.Schema:
         """Create a step schema for the config."""
         if user_input is None:
             user_input = {
@@ -172,18 +168,12 @@ class ComponentConfig:
         try:
             usage_points = espi.parse_xml(xml_content)
         except espi.EspiXmlParseError as ex:
-            raise InvalidUserInputError(
-                {_ComponentConfigField.XML: "invalid_espi_xml"}
-            ) from ex
+            raise InvalidUserInputError({_ComponentConfigField.XML: "invalid_espi_xml"}) from ex
 
         if not usage_points:
-            raise InvalidUserInputError(
-                {_ComponentConfigField.XML: "no_usage_points_found"}
-            )
+            raise InvalidUserInputError({_ComponentConfigField.XML: "no_usage_points_found"})
         if len(usage_points) > 1:
-            raise InvalidUserInputError(
-                {_ComponentConfigField.XML: "multiple_usage_points_found"}
-            )
+            raise InvalidUserInputError({_ComponentConfigField.XML: "multiple_usage_points_found"})
 
         usage_point = usage_points[0]
         meter_reading_configs = [
@@ -223,12 +213,8 @@ class ComponentConfig:
             name=entry.data[_ComponentConfigField.NAME],
             unique_id=entry.data[_ComponentConfigField.UNIQUE_ID],
             meter_reading_configs=[
-                MeterReadingConfig.from_mapping(
-                    meter_reading_config, initial_usage_point
-                )
-                for meter_reading_config in entry.data[
-                    _ComponentConfigField.METER_READING_CONFIGS
-                ]
+                MeterReadingConfig.from_mapping(meter_reading_config, initial_usage_point)
+                for meter_reading_config in entry.data[_ComponentConfigField.METER_READING_CONFIGS]
             ],
             initial_usage_point=initial_usage_point,
         )

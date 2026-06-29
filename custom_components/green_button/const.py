@@ -1,4 +1,5 @@
 """Constants for the Green Button integration."""
+
 from typing import Final
 
 DOMAIN: Final = "green_button"

@@ -1,0 +1,56 @@
+[project]
+name = "ha-green-button"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+test = [
+    "pytest-homeassistant-custom-component>=0.13.0",
+    "pytest-timeout>=2.1",
+    "defusedxml>=0.7.1",
+]
+dev = [
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+fix = true
+force-exclude = true
+target-version = "py312"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+select = [
+    "A001",   # Variable shadowing builtin
+    "B",      # bugbear
+    "BLE",    # blind except
+    "C",      # complexity
+    "COM818", # Trailing comma on bare tuple
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "F541",   # f-string without placeholders
+    "I",      # isort
+    "INP",    # flake8-no-pep420
+    "W",      # pycodestyle warnings
+]
+ignore = [
+    "E501",   # line too long (ruff format handles this)
+]
+
+[tool.ruff.lint.isort]
+force-single-line = false
+known-first-party = ["custom_components"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+timeout = 30

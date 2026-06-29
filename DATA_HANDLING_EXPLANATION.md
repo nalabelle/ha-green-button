@@ -69,6 +69,7 @@ Instead of relying on the recorder to generate statistics from individual state 
 - Properly handles overlapping/duplicate data without corrupting records
 
 **Gas vs Electricity Statistics:**
+
 - **Electricity**: Uses `update_statistics()` with hourly bucketing
 - **Gas**: Uses `update_gas_statistics()` with monthly_increment or daily_readings modes
 - **Gas timing**: Statistics generated immediately in `async_added_to_hass()` if data exists
@@ -119,6 +120,7 @@ update_sensor_and_statistics()
 ```
 
 **Key Differences:**
+
 - **Entity Creation**: Uses entity registry checks to prevent duplicates
 - **Gas Statistics**: Generated immediately in `async_added_to_hass()` if data exists
 - **Electricity Statistics**: Generated in `_handle_coordinator_update()` after data changes
@@ -127,13 +129,13 @@ update_sensor_and_statistics()
 
 ## Why This Approach is Better
 
-| Aspect | Recorder Auto-Stats | Manual `async_import_statistics` |
-|--------|-------------------|----------------------------------|
-| **Historical Data** | ❌ Can only generate from current state changes | ✅ Imports all historical intervals from Green Button data |
-| **Data Accuracy** | ❌ Creates corrupted records (state/sum swap) | ✅ Correctly maps interval values to statistics |
-| **Energy Dashboard** | ❌ Fails or shows incorrect consumption | ✅ Shows accurate historical consumption |
-| **Backfill Capability** | ❌ Limited to real-time data | ✅ Can backfill years of historical data |
-| **Flexibility** | ❌ Fixed to real-time state-based stats | ✅ Can handle any interval length (15min, hourly, daily) |
+| Aspect                  | Recorder Auto-Stats                             | Manual `async_import_statistics`                           |
+| ----------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| **Historical Data**     | ❌ Can only generate from current state changes | ✅ Imports all historical intervals from Green Button data |
+| **Data Accuracy**       | ❌ Creates corrupted records (state/sum swap)   | ✅ Correctly maps interval values to statistics            |
+| **Energy Dashboard**    | ❌ Fails or shows incorrect consumption         | ✅ Shows accurate historical consumption                   |
+| **Backfill Capability** | ❌ Limited to real-time data                    | ✅ Can backfill years of historical data                   |
+| **Flexibility**         | ❌ Fixed to real-time state-based stats         | ✅ Can handle any interval length (15min, hourly, daily)   |
 
 ## Benefits
 
@@ -148,6 +150,7 @@ update_sensor_and_statistics()
 ### Statistics Generation (`statistics.py`)
 
 **Electricity Statistics (`_generate_statistics_data`):**
+
 - Collects all interval readings from meter readings
 - Sorts them chronologically
 - Groups readings into hourly buckets
@@ -156,6 +159,7 @@ update_sensor_and_statistics()
 - Computes cumulative sums based on existing statistics
 
 **Gas Statistics (`update_gas_statistics`):**
+
 - Supports two modes: `daily_readings` (daily totals) and `monthly_increment` (monthly billing periods)
 - For `monthly_increment`: Uses UsageSummary data to create monthly increment records
 - For `daily_readings`: Aggregates daily gas consumption from interval readings
@@ -164,6 +168,7 @@ update_sensor_and_statistics()
 ### Metadata Management
 
 The `create_metadata()` function creates Home Assistant `StatisticMetaData` with:
+
 - `mean_type: StatisticMeanType.NONE` (not `ARITHMETIC` or `CIRCULAR`)
 - `has_sum: True` (enable Energy Dashboard)
 - `unit_of_measurement`: kWh, m³, or currency

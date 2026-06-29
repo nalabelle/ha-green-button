@@ -1,10 +1,12 @@
 """Unit tests for model.py in green_button integration."""
+
 import datetime
+
 from custom_components.green_button.model import (
-    IntervalReading,
     IntervalBlock,
-    ReadingType,
+    IntervalReading,
     MeterReading,
+    ReadingType,
     UsagePoint,
 )
 

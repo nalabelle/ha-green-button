@@ -9,8 +9,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-from collections.abc import Collection
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import final
 
 from homeassistant.components import sensor

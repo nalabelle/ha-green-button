@@ -6,16 +6,16 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import selector
-import voluptuous as vol
 
 from . import configs, const
 from .const import (
-    DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
-    DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER,
     CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
     CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER,
+    DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+    DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER,
 )
 from .parsers import espi
 
@@ -34,8 +34,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         """Get the options flow for this handler."""
         return OptionsFlowHandler(config_entry)
 
-
-    async def async_step_user(
+    async def async_step_user(  # noqa: C901
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle the initial step."""
@@ -89,7 +88,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                     selector.SelectSelectorConfig(
                         options=[
                             {"value": "pro_rate_daily", "label": "Pro-rate gas costs daily"},
-                            {"value": "monthly_increment", "label": "Single monthly cost increment"},
+                            {
+                                "value": "monthly_increment",
+                                "label": "Single monthly cost increment",
+                            },
                         ],
                         mode=selector.SelectSelectorMode.LIST,
                     )
@@ -101,14 +103,22 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                     selector.SelectSelectorConfig(
                         options=[
                             {"value": "daily_readings", "label": "Use daily readings (m³)"},
-                            {"value": "monthly_increment", "label": "Single billing-period usage increment (m³)"},
+                            {
+                                "value": "monthly_increment",
+                                "label": "Single billing-period usage increment (m³)",
+                            },
                         ],
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
                 vol.Optional(
                     CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
-                    default=int(user_input_default.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER, DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER)),
+                    default=int(
+                        user_input_default.get(
+                            CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+                            DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+                        )
+                    ),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=-10,
@@ -119,7 +129,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                 ),
                 vol.Optional(
                     CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER,
-                    default=int(user_input_default.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER, DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER)),
+                    default=int(
+                        user_input_default.get(
+                            CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER,
+                            DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER,
+                        )
+                    ),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=-10,
@@ -161,6 +176,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                         errors.setdefault("base", "file_not_found")
                     else:
                         try:
+
                             def _read(path: Path) -> str:
                                 return path.read_text(encoding="utf-8")
 
@@ -211,29 +227,31 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         # don't have the entry_id yet. The coordinator will migrate it during setup.
         xml_content = user_input.get("xml", "")
         if xml_content:
-            _LOGGER.info("[CONFIG FLOW] Saving XML (%d bytes) to temporary storage using unique_id: %s", 
-                        len(xml_content), config.unique_id)
+            _LOGGER.info(
+                "[CONFIG FLOW] Saving XML (%d bytes) to temporary storage using unique_id: %s",
+                len(xml_content),
+                config.unique_id,
+            )
             # Create a temporary storage instance using the TEMP prefix
-            from .xml_storage import _get_temp_storage_key
             from homeassistant.helpers.storage import Store
-            
+
+            from .xml_storage import _get_temp_storage_key
+
             temp_store = Store(
                 self.hass,
                 1,  # version
                 _get_temp_storage_key(config.unique_id),
                 private=True,
             )
-            
+
             try:
                 # Parse XML to detect commodity type for auto-labeling
-                usage_points = await self.hass.async_add_executor_job(
-                    espi.parse_xml, xml_content
-                )
+                usage_points = await self.hass.async_add_executor_job(espi.parse_xml, xml_content)
                 # Auto-detect label (simplified version of coordinator's method)
                 label = "imported_data"
                 if usage_points:
                     for up in usage_points:
-                        if hasattr(up, 'service_category') and up.service_category:
+                        if hasattr(up, "service_category") and up.service_category:
                             if up.service_category.kind == 0:
                                 label = "electricity"
                                 break
@@ -241,32 +259,40 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                                 label = "gas"
                                 break
                 _LOGGER.info("[CONFIG FLOW] Auto-detected label '%s' from XML", label)
-                
+
                 # Save to temporary storage
                 temp_data = {"stored_xmls": [{"label": label, "xmls": [xml_content]}]}
                 await temp_store.async_save(temp_data)
-                
-                _LOGGER.info("[CONFIG FLOW] Successfully saved XML to temporary .storage/%s (will be migrated to permanent storage during setup)", 
-                            _get_temp_storage_key(config.unique_id))
-            except Exception as e:
-                _LOGGER.error("[CONFIG FLOW] Failed to save XML to temporary storage, falling back to config entry: %s", e)
+
+                _LOGGER.info(
+                    "[CONFIG FLOW] Successfully saved XML to temporary .storage/%s (will be migrated to permanent storage during setup)",
+                    _get_temp_storage_key(config.unique_id),
+                )
+            except Exception as e:  # noqa: BLE001
+                _LOGGER.error(
+                    "[CONFIG FLOW] Failed to save XML to temporary storage, falling back to config entry: %s",
+                    e,
+                )
                 # Fallback to old method if storage fails
                 config_data["initial_xml"] = xml_content
 
         # Store gas cost allocation toggle
-        config_data["gas_cost_allocation"] = user_input.get(
-            "gas_cost_allocation", "pro_rate_daily"
-        )
+        config_data["gas_cost_allocation"] = user_input.get("gas_cost_allocation", "pro_rate_daily")
         # Store gas usage allocation toggle
         config_data["gas_usage_allocation"] = user_input.get(
             "gas_usage_allocation", "daily_readings"
         )
         # Store cost power of ten multipliers (NumberSelector returns float; store as int)
         config_data[CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER] = int(
-            user_input.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER, DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER)
+            user_input.get(
+                CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+                DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+            )
         )
         config_data[CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER] = int(
-            user_input.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER, DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER)
+            user_input.get(
+                CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER, DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER
+            )
         )
 
         return self.async_create_entry(
@@ -304,17 +330,26 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         raw_electricity_multiplier = (
             self.config_entry.options.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER)
-            if self.config_entry.options.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER) is not None
+            if self.config_entry.options.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER)
+            is not None
             else self.config_entry.data.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER)
         )
-        current_electricity_multiplier = int(raw_electricity_multiplier) if raw_electricity_multiplier is not None else DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER
+        current_electricity_multiplier = (
+            int(raw_electricity_multiplier)
+            if raw_electricity_multiplier is not None
+            else DEFAULT_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER
+        )
 
         raw_gas_multiplier = (
             self.config_entry.options.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER)
             if self.config_entry.options.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER) is not None
             else self.config_entry.data.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER)
         )
-        current_gas_multiplier = int(raw_gas_multiplier) if raw_gas_multiplier is not None else DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER
+        current_gas_multiplier = (
+            int(raw_gas_multiplier)
+            if raw_gas_multiplier is not None
+            else DEFAULT_GAS_COST_POWER_OF_TEN_MULTIPLIER
+        )
 
         schema = vol.Schema(
             {
@@ -325,7 +360,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     selector.SelectSelectorConfig(
                         options=[
                             {"value": "pro_rate_daily", "label": "Pro-rate gas costs daily"},
-                            {"value": "monthly_increment", "label": "Single monthly cost increment"},
+                            {
+                                "value": "monthly_increment",
+                                "label": "Single monthly cost increment",
+                            },
                         ],
                         mode=selector.SelectSelectorMode.LIST,
                     )
@@ -337,7 +375,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     selector.SelectSelectorConfig(
                         options=[
                             {"value": "daily_readings", "label": "Use daily readings (m³)"},
-                            {"value": "monthly_increment", "label": "Single billing-period usage increment (m³)"},
+                            {
+                                "value": "monthly_increment",
+                                "label": "Single billing-period usage increment (m³)",
+                            },
                         ],
                         mode=selector.SelectSelectorMode.LIST,
                     )
@@ -369,15 +410,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         if user_input is not None:
             # Only store provided options
-            return self.async_create_entry(title="", data={
-                "gas_cost_allocation": user_input.get("gas_cost_allocation", current_mode),
-                "gas_usage_allocation": user_input.get("gas_usage_allocation", current_usage_mode),
-                CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER: int(
-                    user_input.get(CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER, current_electricity_multiplier)
-                ),
-                CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER: int(
-                    user_input.get(CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER, current_gas_multiplier)
-                ),
-            })
+            return self.async_create_entry(
+                title="",
+                data={
+                    "gas_cost_allocation": user_input.get("gas_cost_allocation", current_mode),
+                    "gas_usage_allocation": user_input.get(
+                        "gas_usage_allocation", current_usage_mode
+                    ),
+                    CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER: int(
+                        user_input.get(
+                            CONF_ELECTRICITY_COST_POWER_OF_TEN_MULTIPLIER,
+                            current_electricity_multiplier,
+                        )
+                    ),
+                    CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER: int(
+                        user_input.get(
+                            CONF_GAS_COST_POWER_OF_TEN_MULTIPLIER, current_gas_multiplier
+                        )
+                    ),
+                },
+            )
 
         return self.async_show_form(step_id="init", data_schema=schema)
