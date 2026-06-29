@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import model, statistics
@@ -50,7 +51,7 @@ def _schedule_hass_task_from_any_thread(hass: HomeAssistant, coro) -> None:
         loop.call_soon_threadsafe(lambda: hass.async_create_task(coro))
 
 
-class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity):
+class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], RestoreEntity, SensorEntity):
     """A sensor for Green Button energy data."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -163,7 +164,7 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity)
         """Return the native unit of measurement for statistics protocol."""
         return self._attr_native_unit_of_measurement or "kWh"
 
-    async def async_added_to_hass(self) -> None:
+    async def async_added_to_hass(self) -> None:  # noqa: C901
         """When entity is added to hass, trigger statistics generation without updating sensor state.
 
         IMPORTANT: We do NOT call async_write_ha_state() here!
@@ -178,6 +179,20 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity)
         we want to avoid since we manage statistics manually.
         """
         await super().async_added_to_hass()
+
+        # Restore last known state from HA's persistent state store so the entity
+        # never shows 0.0 or unavailable between restart and first coordinator fetch.
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
+            try:
+                self._cached_native_value = float(last_state.state)
+                _LOGGER.info(
+                    "Sensor %s: Restored cached value %.2f from last state",
+                    self.entity_id,
+                    self._cached_native_value,
+                )
+            except (ValueError, TypeError):
+                pass
 
         # Fix statistics metadata unit_of_measurement if it was created without one
         # (bug in earlier versions stored null units, which breaks Energy Dashboard cost calculation)
@@ -352,7 +367,7 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity)
             )
 
 
-class GreenButtonCostSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity):
+class GreenButtonCostSensor(CoordinatorEntity[GreenButtonCoordinator], RestoreEntity, SensorEntity):
     """A sensor for Green Button monetary cost data (total)."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -469,6 +484,19 @@ class GreenButtonCostSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEnt
         compilation from generating corrupted records.
         """
         await super().async_added_to_hass()
+
+        # Restore last known state from HA's persistent state store
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in ("unknown", "unavailable"):
+            try:
+                self._cached_native_value = float(last_state.state)
+                _LOGGER.info(
+                    "Cost Sensor %s: Restored cached value %.2f from last state",
+                    self.entity_id,
+                    self._cached_native_value,
+                )
+            except (ValueError, TypeError):
+                pass
 
         _LOGGER.debug(
             "Cost Sensor %s: Entity added to Home Assistant (NOT writing state to avoid recorder auto-statistics)",
