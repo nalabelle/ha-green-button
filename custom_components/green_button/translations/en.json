@@ -43,23 +43,6 @@
       }
     }
   },
-  "green_button": {
-    "gas_cost_allocation": {
-      "pro_rate_daily": "Pro-rate gas costs daily",
-      "monthly_increment": "Single monthly cost increment"
-    },
-    "gas_usage_allocation": {
-      "daily_readings": "Use daily readings (m\u00b3)",
-      "monthly_increment": "Single billing-period usage increment (m\u00b3)"
-    }
-  },
-  "selector": {
-    "input_type": {
-      "none": "None (import XML later)",
-      "file": "XML File",
-      "xml": "XML Content"
-    }
-  },
   "options": {
     "step": {
       "init": {
