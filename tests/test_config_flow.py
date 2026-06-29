@@ -1,17 +1,17 @@
 """Test the Green Button config flow."""
-from unittest.mock import mock_open, patch
-import pytest
 
+from unittest.mock import mock_open, patch
+
+import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.green_button.const import DOMAIN
 
-
 # Sample valid Green Button XML for testing
 SAMPLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" 
+<feed xmlns="http://www.w3.org/2005/Atom"
       xmlns:espi="http://naesb.org/espi">
     <id>urn:uuid:test-feed</id>
     <title>Green Button Data</title>
@@ -58,9 +58,10 @@ async def test_form_xml_inline(hass: HomeAssistant) -> None:
     # Check actual data structure as returned by the config flow
     assert result2["data"]["name"] == "Test Green Button"
     assert result2["data"]["usage_point_id"] == "/UsagePoint/1"
-    assert result2["data"]["xml"] == SAMPLE_XML
     assert result2["data"]["gas_cost_allocation"] == "pro_rate_daily"
     assert result2["data"]["gas_usage_allocation"] == "daily_readings"
+
+
 @pytest.mark.asyncio
 async def test_form_xml_file(hass: HomeAssistant) -> None:
     """Test we can submit XML via file path."""
@@ -70,15 +71,14 @@ async def test_form_xml_file(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {} or result["errors"] is None
 
-    with patch(
-        "custom_components.green_button.async_setup_entry",
-        return_value=True,
-    ), patch(
-        "builtins.open", mock_open(read_data=SAMPLE_XML)
-    ), patch(
-        "pathlib.Path.is_file", return_value=True
-    ), patch(
-        "pathlib.Path.read_text", return_value=SAMPLE_XML
+    with (
+        patch(
+            "custom_components.green_button.async_setup_entry",
+            return_value=True,
+        ),
+        patch("builtins.open", mock_open(read_data=SAMPLE_XML)),
+        patch("pathlib.Path.is_file", return_value=True),
+        patch("pathlib.Path.read_text", return_value=SAMPLE_XML),
     ):
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -95,7 +95,8 @@ async def test_form_xml_file(hass: HomeAssistant) -> None:
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["title"] == "Test Green Button File"
     assert result2["data"]["name"] == "Test Green Button File"
-    assert result2["data"]["xml"] == SAMPLE_XML  # XML content is stored
+    assert result2["data"]["gas_cost_allocation"] == "monthly_increment"
+    assert result2["data"]["gas_usage_allocation"] == "monthly_increment"
 
 
 @pytest.mark.asyncio

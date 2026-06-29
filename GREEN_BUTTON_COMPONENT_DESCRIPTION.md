@@ -24,6 +24,7 @@ The Green Button integration is designed to work directly with the Energy Dashbo
 ## Verifying It's Working
 
 After setup, check that:
+
 1. ✅ Sensors show in Energy Dashboard configuration (not "unexpected state class")
 2. ✅ Sensors show numeric values (last imported cumulative total)
 3. ✅ Sensors show as "Available" (green checkmark)
@@ -52,6 +53,7 @@ See the services.yaml file for a list of other useful Green Button actions that 
 ### Duplicate or Corrupted Statistics
 
 If you upgraded from an older version that used recorder exclusions:
+
 1. Remove the old recorder exclusions from `configuration.yaml` (search for `green_button` or sensor entity names)
 2. Restart Home Assistant (required for configuration changes to take effect)
 3. Delete corrupted statistics using **Developer Tools → Actions**:
@@ -94,6 +96,7 @@ The Green Button integration prevents automatic statistics compilation by:
 - **Energy Dashboard compatible** - Sensors have valid states and proper `state_class`
 
 This design provides:
+
 - ✅ Full control over statistics
 - ✅ No duplicate or corrupted data
 - ✅ Energy Dashboard compatibility

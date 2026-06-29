@@ -3,8 +3,7 @@
 import datetime
 import logging
 from collections.abc import Callable
-from typing import Final
-from typing import TypeVar
+from typing import Final, TypeVar
 from xml.etree import ElementTree as ET
 
 from defusedxml import ElementTree as defusedET
@@ -22,8 +21,8 @@ _NAMESPACE_MAP: Final = {
 
 _UOM_MAP: Final = {
     # Use strings to keep model generic across energy and gas
-    "72": "Wh",   # Watt-hours (electricity)
-    "42": "m³",   # Cubic meters (gas)
+    "72": "Wh",  # Watt-hours (electricity)
+    "42": "m³",  # Cubic meters (gas)
     "80": "currency",
 }
 
@@ -53,9 +52,7 @@ def _pretty_print(elem: ET.Element) -> str:
 def _parse_child_text(elem: ET.Element, xpath: str, parser: Callable[[str], T]) -> T:
     matches = elem.findall(xpath, _NAMESPACE_MAP)
     if len(matches) != 1:
-        raise EspiXmlParseError(
-            f"No path '{xpath}' found for entry:\n{_pretty_print(elem)}"
-        )
+        raise EspiXmlParseError(f"No path '{xpath}' found for entry:\n{_pretty_print(elem)}")
 
     text = matches[0].text
     if text is None:
@@ -104,9 +101,7 @@ def _parse_optional_child_text(
         ) from ex
 
 
-def _parse_child_elems(
-    elem: ET.Element, xpath: str, parser: Callable[[ET.Element], T]
-) -> list[T]:
+def _parse_child_elems(elem: ET.Element, xpath: str, parser: Callable[[ET.Element], T]) -> list[T]:
     out = []
     for match in elem.findall(xpath, _NAMESPACE_MAP):
         try:
@@ -163,9 +158,7 @@ class GreenButtonFeed:
         reading_type_entries = self.find_entries("ReadingType")
         consumed_energy_reading_types: list[tuple[EspiEntry, model.ReadingType]] = []
 
-        logger.debug(
-            "Found %d ReadingType entries to process", len(reading_type_entries)
-        )
+        logger.debug("Found %d ReadingType entries to process", len(reading_type_entries))
 
         for rt_entry in reading_type_entries:
             try:
@@ -176,14 +169,10 @@ class GreenButtonFeed:
                 interval_length = rt_entry.parse_child_text("espi:intervalLength", int)
 
                 if flow_direction == 1:  # Energy consumed
-                    # Skip daily summaries (intervalLength >= 86400 seconds = 24 hours)
-                    if interval_length >= 86400:
-                        logger.debug(
-                            "Skipping daily summary ReadingType: %s (intervalLength=%d seconds)",
-                            rt_href,
-                            interval_length,
-                        )
-                        continue
+                    # Accept all consumption intervals (sub-daily, daily, and monthly).
+                    # Some utilities (e.g. DTE Energy) provide monthly billing data
+                    # with intervalLength=2678400 (~31 days) rather than hourly/15-min.
+                    pass
 
                     reading_type = rt_entry.to_reading_type()
                     consumed_energy_reading_types.append((rt_entry, reading_type))
@@ -253,10 +242,17 @@ class GreenButtonFeed:
         logger.debug("MeterReading %s has related hrefs: %s", mr_href, mr_related_hrefs)
 
         # Find related interval blocks for this meter reading
-        interval_blocks = mr_entry.find_related_entries(
-            "IntervalBlock",
-            mr_entry.create_interval_block_parser(reading_type),
-        )
+        interval_blocks: list[model.IntervalBlock] = []
+        for interval_block_entry in self.find_entries("IntervalBlock"):
+            interval_block_href = interval_block_entry.find_self_href()
+            for related_href in mr_related_hrefs:
+                if (
+                    interval_block_href == related_href
+                    or interval_block_href.startswith(related_href + "/")
+                    or related_href.startswith(interval_block_href + "/")
+                ):
+                    interval_blocks.extend(interval_block_entry.parse_interval_blocks(reading_type))
+                    break
 
         logger.debug(
             "MeterReading %s found %d related IntervalBlocks",
@@ -269,9 +265,7 @@ class GreenButtonFeed:
             logger.warning(
                 "No IntervalBlocks found via direct relations, trying alternative matching"
             )
-            interval_blocks = self._find_interval_blocks_for_meter_reading(
-                mr_entry, reading_type
-            )
+            interval_blocks = self._find_interval_blocks_for_meter_reading(mr_entry, reading_type)
             logger.debug(
                 "Alternative matching found %d IntervalBlocks for MeterReading %s",
                 len(interval_blocks),
@@ -311,9 +305,7 @@ class GreenButtonFeed:
 
                 # Check if this interval block relates back to our meter reading
                 if mr_href in ib_related_hrefs:
-                    parser = ib_entry.create_interval_block_parser(reading_type)
-                    interval_block = parser(ib_entry)
-                    matching_blocks.append(interval_block)
+                    matching_blocks.extend(ib_entry.parse_interval_blocks(reading_type))
                     logger.debug(
                         "Matched IntervalBlock %s to MeterReading %s",
                         ib_entry.find_self_href(),
@@ -353,11 +345,19 @@ class EspiEntry:
         return hrefs
 
     def find_self_href(self) -> str:
-        """Find the entry's self HREF."""
+        """Find the entry's self HREF.
+
+        Falls back to the atom:id element when no rel="self" link is present.
+        """
         hrefs = self._find_link_hrefs("self")
-        if not hrefs:
-            raise EspiXmlParseError(f"No self link for entry:\n{self._pretty_print()}")
-        return hrefs[0]
+        if hrefs:
+            return hrefs[0]
+
+        id_elem = self._elem.find("./atom:id", _NAMESPACE_MAP)
+        if id_elem is not None and id_elem.text:
+            return id_elem.text
+
+        raise EspiXmlParseError(f"No self link or id for entry:\n{self._pretty_print()}")
 
     def find_related_hrefs(self) -> list[str]:
         """Find the entry's related HREFs."""
@@ -368,9 +368,7 @@ class EspiEntry:
         xpath = f"./atom:content/espi:{self._type_tag}/{path}"
         return _parse_child_text(self._elem, xpath, parser)
 
-    def parse_child_elems(
-        self, path: str, parser: Callable[[ET.Element], T]
-    ) -> list[T]:
+    def parse_child_elems(self, path: str, parser: Callable[[ET.Element], T]) -> list[T]:
         """Parse the *element* at the specified path."""
         xpath = f"./atom:content/espi:{self._type_tag}/{path}"
         return _parse_child_elems(self._elem, xpath, parser)
@@ -385,7 +383,9 @@ class EspiEntry:
             related_entry_href = related_entry.find_self_href()
             # Check for exact match or prefix match (for feed vs entry hrefs)
             for related_href in related_hrefs:
-                if related_entry_href == related_href or related_entry_href.startswith(related_href + "/"):
+                if related_entry_href == related_href or related_entry_href.startswith(
+                    related_href + "/"
+                ):
                     matches.append(parser(related_entry))
                     break
         return matches
@@ -411,12 +411,8 @@ class EspiEntry:
                 reading_type=reading_type,
                 # 'cost' is optional in some feeds; default to 0 if missing
                 cost=_parse_optional_child_text(elem, "./espi:cost", int, 0),
-                start=_parse_child_text(
-                    elem, "./espi:timePeriod/espi:start", _to_utc_datetime
-                ),
-                duration=_parse_child_text(
-                    elem, "./espi:timePeriod/espi:duration", _to_timedelta
-                ),
+                start=_parse_child_text(elem, "./espi:timePeriod/espi:start", _to_utc_datetime),
+                duration=_parse_child_text(elem, "./espi:timePeriod/espi:duration", _to_timedelta),
                 value=_parse_child_text(elem, "./espi:value", int),
             )
 
@@ -425,18 +421,18 @@ class EspiEntry:
     def create_interval_block_parser(
         self, reading_type: model.ReadingType
     ) -> Callable[["EspiEntry"], model.IntervalBlock]:
-        """Create an IntervalBlock parser for the ReadingType."""
+        """Create an IntervalBlock parser for the ReadingType.
+
+        Deprecated: use parse_interval_blocks() to handle entries with multiple
+        IntervalBlock children.
+        """
 
         def parser(entry: EspiEntry) -> model.IntervalBlock:
             return model.IntervalBlock(
                 id=entry.find_self_href(),
                 reading_type=reading_type,
-                start=entry.parse_child_text(
-                    "espi:interval/espi:start", _to_utc_datetime
-                ),
-                duration=entry.parse_child_text(
-                    "espi:interval/espi:duration", _to_timedelta
-                ),
+                start=entry.parse_child_text("espi:interval/espi:start", _to_utc_datetime),
+                duration=entry.parse_child_text("espi:interval/espi:duration", _to_timedelta),
                 interval_readings=entry.parse_child_elems(
                     "espi:IntervalReading",
                     entry.create_interval_reading_parser(reading_type),
@@ -445,6 +441,30 @@ class EspiEntry:
 
         return parser
 
+    def parse_interval_blocks(self, reading_type: model.ReadingType) -> list[model.IntervalBlock]:
+        """Parse all IntervalBlock children of this entry."""
+        base_id = self.find_self_href()
+        xpath = f"./atom:content/espi:{self._type_tag}/espi:IntervalBlock"
+        block_elems = self._elem.findall(xpath, _NAMESPACE_MAP)
+
+        reading_parser = self.create_interval_reading_parser(reading_type)
+
+        def _parse_block(block_elem: ET.Element, index: int) -> model.IntervalBlock:
+            block_id = base_id if len(block_elems) == 1 else f"{base_id}#{index}"
+            return model.IntervalBlock(
+                id=block_id,
+                reading_type=reading_type,
+                start=_parse_child_text(block_elem, "./espi:interval/espi:start", _to_utc_datetime),
+                duration=_parse_child_text(
+                    block_elem, "./espi:interval/espi:duration", _to_timedelta
+                ),
+                interval_readings=_parse_child_elems(
+                    block_elem, "./espi:IntervalReading", reading_parser
+                ),
+            )
+
+        return [_parse_block(block, index) for index, block in enumerate(block_elems)]
+
     def to_reading_type(self) -> model.ReadingType:
         """Parse this entry as a ReadingType."""
         return model.ReadingType(
@@ -452,9 +472,7 @@ class EspiEntry:
             commodity=_parse_optional_child_text(
                 self._elem, "./atom:content/espi:ReadingType/espi:commodity", int, None
             ),
-            power_of_ten_multiplier=self.parse_child_text(
-                "espi:powerOfTenMultiplier", int
-            ),
+            power_of_ten_multiplier=self.parse_child_text("espi:powerOfTenMultiplier", int),
             unit_of_measurement=self.parse_child_text("espi:uom", _UOM_MAP.__getitem__),
             currency=self.parse_child_text("espi:currency", _CURRENCY_MAP.__getitem__),
             interval_length=self.parse_child_text("espi:intervalLength", int),
@@ -466,16 +484,26 @@ class EspiEntry:
             "ReadingType",
             EspiEntry.to_reading_type,
         )
+        interval_blocks: list[model.IntervalBlock] = []
+        for interval_block_entry in self._root.find_entries("IntervalBlock"):
+            related_hrefs = interval_block_entry.find_related_hrefs()
+            self_href = self.find_self_href()
+            for related_href in related_hrefs:
+                if (
+                    related_href == self_href
+                    or self_href.startswith(related_href + "/")
+                    or related_href.startswith(self_href + "/")
+                ):
+                    interval_blocks.extend(interval_block_entry.parse_interval_blocks(reading_type))
+                    break
+
         return model.MeterReading(
             id=self.find_self_href(),
             reading_type=reading_type,
-            interval_blocks=self.find_related_entries(
-                "IntervalBlock",
-                self.create_interval_block_parser(reading_type),
-            ),
+            interval_blocks=interval_blocks,
         )
 
-    def to_usage_point(self) -> model.UsagePoint:
+    def to_usage_point(self) -> model.UsagePoint:  # noqa: C901
         """Parse this entry as a UsagePoint."""
         logger = logging.getLogger(__name__)
         self_href = self.find_self_href()
@@ -512,15 +540,20 @@ class EspiEntry:
                                     break
 
                             if rt_entry:
-                                flow_direction = rt_entry.parse_child_text("espi:flowDirection", int)
-                                interval_length = rt_entry.parse_child_text("espi:intervalLength", int)
+                                flow_direction = rt_entry.parse_child_text(
+                                    "espi:flowDirection", int
+                                )
+                                interval_length = rt_entry.parse_child_text(
+                                    "espi:intervalLength", int
+                                )
 
-                                # For electricity: include sub-daily consumption (< 86400)
+                                # For electricity: include all consumption intervals
+                                # (sub-daily, daily, monthly — e.g. DTE provides monthly
+                                # billing data with intervalLength=2678400)
                                 # For gas: include daily consumption (== 86400)
                                 if (
                                     sensor_device_class == sensor.SensorDeviceClass.ENERGY
                                     and flow_direction == 1
-                                    and interval_length < 86400
                                 ) or (
                                     sensor_device_class == sensor.SensorDeviceClass.GAS
                                     and flow_direction == 1
@@ -528,24 +561,37 @@ class EspiEntry:
                                 ):
                                     logger.debug(
                                         "Including MeterReading %s (flowDirection=%d, intervalLength=%d)",
-                                        mr_href, flow_direction, interval_length
+                                        mr_href,
+                                        flow_direction,
+                                        interval_length,
                                     )
                                     meter_readings.append(mr_entry.to_meter_reading())
                                 else:
                                     logger.debug(
                                         "Skipping MeterReading %s (flowDirection=%d, intervalLength=%d)",
-                                        mr_href, flow_direction, interval_length
+                                        mr_href,
+                                        flow_direction,
+                                        interval_length,
                                     )
                             else:
                                 # If we can't determine flow direction, include it
-                                logger.warning("Could not determine flowDirection for %s, including by default", mr_href)
+                                logger.warning(
+                                    "Could not determine flowDirection for %s, including by default",
+                                    mr_href,
+                                )
                                 meter_readings.append(mr_entry.to_meter_reading())
                         else:
                             # If no reading type found, include it
-                            logger.warning("No ReadingType found for %s, including by default", mr_href)
+                            logger.warning(
+                                "No ReadingType found for %s, including by default", mr_href
+                            )
                             meter_readings.append(mr_entry.to_meter_reading())
                     except (ValueError, EspiXmlParseError) as ex:
-                        logger.warning("Failed to check flowDirection for %s: %s, including by default", mr_href, ex)
+                        logger.warning(
+                            "Failed to check flowDirection for %s: %s, including by default",
+                            mr_href,
+                            ex,
+                        )
                         meter_readings.append(mr_entry.to_meter_reading())
 
                     break
@@ -557,14 +603,19 @@ class EspiEntry:
             if any(self_href == href or self_href.startswith(href + "/") for href in us_related):
                 try:
                     # billingPeriod
-                    start = us_entry.parse_child_text("espi:billingPeriod/espi:start", _to_utc_datetime)
-                    duration = us_entry.parse_child_text("espi:billingPeriod/espi:duration", _to_timedelta)
+                    start = us_entry.parse_child_text(
+                        "espi:billingPeriod/espi:start", _to_utc_datetime
+                    )
+                    duration = us_entry.parse_child_text(
+                        "espi:billingPeriod/espi:duration", _to_timedelta
+                    )
                     currency = _parse_optional_child_text(
                         us_entry.elem,
                         "./atom:content/espi:UsageSummary/espi:currency",
                         _CURRENCY_MAP.__getitem__,
                         "CAD",
                     )
+
                     # Prefer an explicit Amount Due in costAdditionalDetailLastPeriod
                     def _find_amount_due(e: ET.Element) -> float | None:
                         for cad in e.findall(
@@ -581,12 +632,15 @@ class EspiEntry:
                                 if amt is not None and meas is not None:
                                     p10 = meas.find("espi:powerOfTenMultiplier", _NAMESPACE_MAP)
                                     try:
-                                        power = int(p10.text) if p10 is not None and p10.text else -3
+                                        power = (
+                                            int(p10.text) if p10 is not None and p10.text else -3
+                                        )
                                     except ValueError:
                                         power = -3
                                     val = float(amt.text or 0)
-                                    return val * (10 ** power)
+                                    return val * (10**power)
                         return None
+
                     total_cost = _find_amount_due(us_entry.elem)
                     # Extract currentBillingPeriodOverAllConsumption (m³) if available
                     consumption_m3: float | None = None
@@ -605,18 +659,18 @@ class EspiEntry:
                                 except ValueError:
                                     power = -3
                                 # Only accept m³ (uom 42)
-                                is_m3 = (uom is not None and (uom.text or "").strip() == "42")
+                                is_m3 = uom is not None and (uom.text or "").strip() == "42"
                                 raw_val = float(val_el.text)
-                                val = raw_val * (10 ** power)
+                                val = raw_val * (10**power)
                                 consumption_m3 = float(val) if is_m3 else None
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         consumption_m3 = None
                     if total_cost is None:
                         # Fallback to billLastPeriod with implicit -3 scaling
                         try:
                             raw = us_entry.parse_child_text("espi:billLastPeriod", float)
-                            total_cost = raw * (10 ** -3)
-                        except Exception:
+                            total_cost = raw * (10**-3)
+                        except Exception:  # noqa: BLE001
                             total_cost = 0.0
                     usage_summaries.append(
                         model.UsageSummary(
@@ -628,12 +682,14 @@ class EspiEntry:
                             consumption_m3=consumption_m3,
                         )
                     )
-                except Exception as ex:
+                except Exception as ex:  # noqa: BLE001
                     logger.warning("Failed to parse UsageSummary for %s: %s", self_href, ex)
 
         logger.debug(
             "UsagePoint %s found %d meter readings and %d usage summaries (after filtering)",
-            self_href, len(meter_readings), len(usage_summaries)
+            self_href,
+            len(meter_readings),
+            len(usage_summaries),
         )
 
         return model.UsagePoint(
@@ -657,15 +713,9 @@ def parse_xml(value: str) -> list[model.UsagePoint]:
 
         # Debug: Log what entries we found
         logger.debug("Found %d UsagePoint entries", len(feed.find_entries("UsagePoint")))
-        logger.debug(
-            "Found %d MeterReading entries", len(feed.find_entries("MeterReading"))
-        )
-        logger.debug(
-            "Found %d IntervalBlock entries", len(feed.find_entries("IntervalBlock"))
-        )
-        logger.debug(
-            "Found %d ReadingType entries", len(feed.find_entries("ReadingType"))
-        )
+        logger.debug("Found %d MeterReading entries", len(feed.find_entries("MeterReading")))
+        logger.debug("Found %d IntervalBlock entries", len(feed.find_entries("IntervalBlock")))
+        logger.debug("Found %d ReadingType entries", len(feed.find_entries("ReadingType")))
 
         usage_points = feed.to_usage_points()
 

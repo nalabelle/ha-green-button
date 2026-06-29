@@ -6,3 +6,4 @@ pythonenv*
 .env
 pyrightconfig.json
 **/*.txt
+.pre-commit-config.yaml

@@ -4,11 +4,10 @@
   "codeowners": ["@rhounsell"],
   "config_flow": true,
   "dependencies": ["recorder"],
-  "documentation": "...",
+  "documentation": "https://github.com/nalabelle/ha-green-button",
   "iot_class": "assumed_state",
-  "issue_tracker": "https://github.com/rhounsell/home-assistant-green-button/issues",
+  "issue_tracker": "https://github.com/nalabelle/ha-green-button/issues",
   "loggers": ["custom_components.green_button"],
   "requirements": ["defusedxml==0.7.1"],
-  "version": "1.2.0",
-  "supported_platforms": ["sensor"]
+  "version": "1.2.0"
 }
