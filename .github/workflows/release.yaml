@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tagged: ${{ steps.tag.outputs.tagged }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version and check tag
+        id: tag
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/green_button/manifest.json'))['version'])")
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          if git tag -l "$TAG" | grep -q .; then
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG} already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+            echo "Created and pushed tag ${TAG}"
+          fi
+
+  release:
+    needs: tag
+    if: needs.tag.outputs.tagged == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREVIOUS_TAG" ]; then
+            NOTES=$(git log "${PREVIOUS_TAG}..HEAD" --pretty=format:"- %s")
+          else
+            NOTES=$(git log --pretty=format:"- %s" -20)
+          fi
+          echo "NOTES<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.tag.outputs.version }}
+          name: ${{ needs.tag.outputs.version }}
+          body: ${{ steps.notes.outputs.NOTES }}
+          draft: false
+          prerelease: false
