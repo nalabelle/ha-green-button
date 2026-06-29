@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/nalabelle/ha-green-button/issues",
   "loggers": ["custom_components.green_button"],
   "requirements": ["defusedxml==0.7.1"],
-  "version": "1.2.2"
+  "version": "1.2.4"
 }

@@ -6,6 +6,9 @@ import asyncio
 import logging
 from typing import Any
 
+from homeassistant.components.recorder.statistics import (
+    async_update_statistics_metadata,
+)
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -99,15 +102,16 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity)
 
     @property
     def available(self) -> bool:
-        available = self.coordinator.last_update_success and (self.coordinator.data is not None)
-        _LOGGER.debug(
-            "Sensor %s: available property evaluated to %s (last_update_success=%s, data is not None=%s)",
-            getattr(self, "entity_id", self._attr_unique_id),
-            available,
-            self.coordinator.last_update_success,
-            self.coordinator.data is not None,
-        )
-        return available
+        """Always available — native_value returns cached statistics, not live coordinator data.
+
+        During a reload the coordinator temporarily has no data, which would make
+        this property return False and cause HA to mark the entity unavailable.
+        That triggers the "entity is no longer being provided" warning and breaks
+        the Energy Dashboard until the next successful data fetch.
+        Since we cache the last imported value in _cached_native_value, we can
+        always report available.
+        """
+        return True
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -174,6 +178,19 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEntity)
         we want to avoid since we manage statistics manually.
         """
         await super().async_added_to_hass()
+
+        # Fix statistics metadata unit_of_measurement if it was created without one
+        # (bug in earlier versions stored null units, which breaks Energy Dashboard cost calc)
+        expected_unit = self.native_unit_of_measurement
+        if expected_unit:
+            try:
+                async_update_statistics_metadata(
+                    self.hass,
+                    self.long_term_statistics_id,
+                    new_unit_of_measurement=expected_unit,
+                )
+            except Exception:  # noqa: BLE001
+                pass  # Non-critical — statistics import will still work
 
         _LOGGER.debug(
             "Sensor %s: Entity added to Home Assistant (NOT writing state to avoid recorder auto-statistics)",
@@ -398,15 +415,13 @@ class GreenButtonCostSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEnt
 
     @property
     def available(self) -> bool:
-        available = self.coordinator.last_update_success and (self.coordinator.data is not None)
-        _LOGGER.debug(
-            "Cost Sensor %s: available property evaluated to %s (last_update_success=%s, data is not None=%s)",
-            getattr(self, "entity_id", self._attr_unique_id),
-            available,
-            self.coordinator.last_update_success,
-            self.coordinator.data is not None,
-        )
-        return available
+        """Always available — native_value returns cached cost, not live coordinator data.
+
+        During a reload the coordinator temporarily has no data, which would make
+        this property return False and cause HA to mark the entity unavailable.
+        Since we cache the last cost value, we can always report available.
+        """
+        return True
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
