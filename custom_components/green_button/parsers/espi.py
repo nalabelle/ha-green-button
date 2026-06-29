@@ -360,8 +360,14 @@ class EspiEntry:
         raise EspiXmlParseError(f"No self link or id for entry:\n{self._pretty_print()}")
 
     def find_related_hrefs(self) -> list[str]:
-        """Find the entry's related HREFs."""
-        return self._find_link_hrefs("related")
+        """Find the entry's related and up HREFs.
+
+        ESPI uses ``rel="related"`` for forward links (MR → ReadingType) and
+        ``rel="up"`` for parent links (IB → MR, MR → UsagePoint). Both are
+        needed to match IntervalBlocks to their MeterReading in flat ESPI
+        structures (DTE-style) where entries are siblings rather than nested.
+        """
+        return self._find_link_hrefs("related") + self._find_link_hrefs("up")
 
     def parse_child_text(self, path: str, parser: Callable[[str], T]) -> T:
         """Parse the text of the element at the specified path."""
@@ -442,10 +448,23 @@ class EspiEntry:
         return parser
 
     def parse_interval_blocks(self, reading_type: model.ReadingType) -> list[model.IntervalBlock]:
-        """Parse all IntervalBlock children of this entry."""
+        """Parse all IntervalBlock children of this entry.
+
+        For flat ESPI (DTE-style), the entry itself IS an IntervalBlock —
+        its content is ``<espi:IntervalBlock>`` directly. For nested ESPI,
+        IntervalBlocks appear inside a parent container (e.g. MeterReading).
+        We handle both: if the entry type is IntervalBlock, the content
+        element IS the block; otherwise we look for IntervalBlock children.
+        """
         base_id = self.find_self_href()
-        xpath = f"./atom:content/espi:{self._type_tag}/espi:IntervalBlock"
-        block_elems = self._elem.findall(xpath, _NAMESPACE_MAP)
+        if self._type_tag == "IntervalBlock":
+            # Flat ESPI: this entry's content IS the IntervalBlock
+            content_xpath = "./atom:content/espi:IntervalBlock"
+            block_elems = self._elem.findall(content_xpath, _NAMESPACE_MAP)
+        else:
+            # Nested ESPI: IntervalBlock children inside a container entry
+            xpath = f"./atom:content/espi:{self._type_tag}/espi:IntervalBlock"
+            block_elems = self._elem.findall(xpath, _NAMESPACE_MAP)
 
         reading_parser = self.create_interval_reading_parser(reading_type)
 
