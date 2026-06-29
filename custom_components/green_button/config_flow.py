@@ -34,7 +34,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
         """Get the options flow for this handler."""
         return OptionsFlowHandler(config_entry)
 
-    async def async_step_user(
+    async def async_step_user(  # noqa: C901
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle the initial step."""

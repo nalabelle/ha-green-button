@@ -46,7 +46,7 @@ def test_green_button_coordinator_handle_update_error(monkeypatch):
     mock_config_entry.data = {"name": "Test", "usage_point_id": "up1"}
 
     async def fail_update(self):
-        raise Exception("fail")
+        raise RuntimeError("fail")
 
     monkeypatch.setattr(coordinator.GreenButtonCoordinator, "_async_update_data", fail_update)
     coord = coordinator.GreenButtonCoordinator(mock_hass, mock_config_entry)
@@ -56,11 +56,11 @@ def test_green_button_coordinator_handle_update_error(monkeypatch):
     if sys.version_info >= (3, 8):
         try:
             asyncio.run(coord._async_update_data())
-        except Exception as e:
+        except RuntimeError as e:
             assert str(e) == "fail"
     else:
         loop = asyncio.get_event_loop()
         try:
             loop.run_until_complete(coord._async_update_data())
-        except Exception as e:
+        except RuntimeError as e:
             assert str(e) == "fail"

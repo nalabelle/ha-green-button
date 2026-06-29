@@ -503,7 +503,7 @@ class EspiEntry:
             interval_blocks=interval_blocks,
         )
 
-    def to_usage_point(self) -> model.UsagePoint:
+    def to_usage_point(self) -> model.UsagePoint:  # noqa: C901
         """Parse this entry as a UsagePoint."""
         logger = logging.getLogger(__name__)
         self_href = self.find_self_href()

@@ -62,7 +62,7 @@ def _read_file_sync(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
-async def async_setup_services(hass: HomeAssistant) -> None:
+async def async_setup_services(hass: HomeAssistant) -> None:  # noqa: C901
     async def log_meter_reading_intervals_service(call: ServiceCall) -> None:
         """Log all meter readings, their interval block date ranges, and mapped sensor entities."""
         entity_registry = async_get_entity_registry(hass)
@@ -107,7 +107,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                             len(interval_block.interval_readings),
                         )
 
-    async def log_stored_xmls_service(call: ServiceCall) -> None:
+    async def log_stored_xmls_service(call: ServiceCall) -> None:  # noqa: C901
         """Log information about stored XMLs in storage files."""
 
         entries = list(hass.config_entries.async_entries(DOMAIN))
@@ -188,7 +188,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
             _LOGGER.info("=" * 60)
 
-    async def import_espi_xml_service(call: ServiceCall) -> None:
+    async def import_espi_xml_service(call: ServiceCall) -> None:  # noqa: C901
         """Handle the import_espi_xml service call."""
         xml_path = call.data.get("xml_file_path", "").strip()
         xml_content = call.data.get("xml", "").strip()
@@ -352,7 +352,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 else:
                     _LOGGER.info("No stored XMLs found for entry %s", entry.entry_id)
 
-    async def recalculate_cost_statistics_service(call: ServiceCall) -> None:
+    async def recalculate_cost_statistics_service(call: ServiceCall) -> None:  # noqa: C901
         """Handle the recalculate_cost_statistics service call."""
         commodity = call.data.get("commodity", "both")
 

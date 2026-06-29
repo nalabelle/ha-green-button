@@ -1180,7 +1180,7 @@ def create_metadata(entity: GreenButtonEntity) -> StatisticMetaData:
     }
 
 
-async def _generate_statistics_data(
+async def _generate_statistics_data(  # noqa: C901
     hass: HomeAssistant,
     entity: GreenButtonEntity,
     data_extractor: DataExtractor,
@@ -1328,7 +1328,7 @@ async def _generate_statistics_data(
     return merged_stats
 
 
-async def _generate_statistics_data_cost(
+async def _generate_statistics_data_cost(  # noqa: C901
     hass: HomeAssistant,
     entity: GreenButtonEntity,
     data_extractor: DataExtractor,
@@ -1742,7 +1742,7 @@ async def _generate_daily_m3_statistics(
     return merged_stats
 
 
-async def update_gas_statistics(
+async def update_gas_statistics(  # noqa: C901
     hass: HomeAssistant,
     entity: GreenButtonEntity,
     meter_reading: model.MeterReading | None,
@@ -1856,7 +1856,7 @@ async def update_gas_statistics(
         first_start: datetime.datetime | None = None
         existing_sum = 0.0
 
-        for period_start, period_end, consumption_m3, source in periods_to_process:
+        for period_start, period_end, consumption_m3, _source in periods_to_process:
             # Place the increment at 00:00 of the period end date (the day the period ends)
             rec_start = datetime.datetime.combine(
                 period_end.date(), datetime.time.min, tzinfo=tzinfo
@@ -1991,7 +1991,7 @@ async def update_gas_statistics(
         _LOGGER.exception("Failed to import gas stats for %s", entity.entity_id)
 
 
-async def update_gas_cost_statistics(
+async def update_gas_cost_statistics(  # noqa: C901
     hass: HomeAssistant,
     entity: GreenButtonEntity,
     meter_reading: model.MeterReading | None,

@@ -48,7 +48,7 @@ class GreenButtonCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.usage_points = usage_points or []
             return {"usage_points": usage_points or []}
 
-    async def async_add_xml_data(self, xml_data: str, store_in_config: bool = True) -> None:
+    async def async_add_xml_data(self, xml_data: str, store_in_config: bool = True) -> None:  # noqa: C901
         """Add new Green Button XML data and update entities.
 
         Args:
@@ -219,7 +219,7 @@ class GreenButtonCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Check if entities already exist for the current data."""
         return bool(self.usage_points)
 
-    async def async_load_stored_data(self) -> None:
+    async def async_load_stored_data(self) -> None:  # noqa: C901
         """Load XML data from storage file (used during startup).
 
         Uses a separate Store instance instead of config entry data because
@@ -384,7 +384,7 @@ class GreenButtonCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 err,
             )
 
-    def _merge_usage_points(self, new_usage_points: list[model.UsagePoint]) -> None:
+    def _merge_usage_points(self, new_usage_points: list[model.UsagePoint]) -> None:  # noqa: C901
         """Merge new usage points with existing ones, combining interval blocks."""
         if not self.usage_points:
             # No existing data, just use new data
@@ -449,7 +449,7 @@ class GreenButtonCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     len(new_up.usage_summaries),
                 )
 
-    def _merge_meter_readings(
+    def _merge_meter_readings(  # noqa: C901
         self,
         existing_up: model.UsagePoint,
         new_meter_readings: list[model.MeterReading],

@@ -1110,7 +1110,7 @@ class GreenButtonGasCostSensor(CoordinatorEntity[GreenButtonCoordinator], Sensor
             )
 
 
-async def async_setup_entry(
+async def async_setup_entry(  # noqa: C901
     hass: HomeAssistant,
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
@@ -1146,7 +1146,7 @@ async def async_setup_entry(
             )
             entity.async_write_ha_state()
 
-    def _async_create_entities() -> None:
+    def _async_create_entities() -> None:  # noqa: C901
         """Create new entities when data becomes available."""
         entities = []
         entity_registry = async_get_entity_registry(hass)

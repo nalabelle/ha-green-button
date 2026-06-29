@@ -32,7 +32,6 @@ docstring-code-line-length = "dynamic"
 select = [
     "A001",   # Variable shadowing builtin
     "B",      # bugbear
-    "BLE",    # blind except
     "C",      # complexity
     "COM818", # Trailing comma on bare tuple
     "E",      # pycodestyle errors
@@ -44,9 +43,6 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (ruff format handles this)
-    "BLE001", # blind except — HA convention
-    "C901",   # complexity — pre-existing, not for this PR
-    "B007",   # unused loop variable — pre-existing
 ]
 
 [tool.ruff.lint.isort]
