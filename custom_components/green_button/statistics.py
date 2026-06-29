@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, cast, final
 from homeassistant import exceptions
 from homeassistant.components.recorder import db_schema as recorder_db_schema
 from homeassistant.components.recorder import statistics, tasks
-from homeassistant.components.recorder.models import StatisticData, StatisticMeanType
-from homeassistant.components.recorder.models.statistics import StatisticMetaData
+from homeassistant.components.recorder.models import StatisticData
+from homeassistant.components.recorder.models.statistics import StatisticMeanType, StatisticMetaData
 from homeassistant.components.recorder.statistics import async_import_statistics
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
