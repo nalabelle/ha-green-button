@@ -12,7 +12,7 @@
 
 A custom component for Home Assistant that will import Green Button Usage and Cost data, and then generate statistics which can be added to the Energy dashboard.
 
-The Green Button data needs to be in the ESPI XML Schema Definition, contained in an Atom Syndication format. 
+The Green Button data needs to be in the ESPI XML Schema Definition, contained in an Atom Syndication format.
 
 This custom component has been developed to handle the Green Button data available from Hydro Ottawa and Enbridge Gas. It may or may not work with other sources of Green Button data.
 
@@ -39,13 +39,15 @@ Green Button XML blocks do not need to be imported in chronological order, and c
 When importing xml files, it's probably easiest to locate the file to be imported in Home Assistant's **share** folder, which appears under the config folder, and can be referenced in the file path using **/share/**/<green_button_xml_file.xml>
 
 ### Power Of Ten Multiplier for Cost
+
 The Green Button spec says that the [default power-of-ten-multiplier for cost](https://www.greenbuttonalliance.org/costandcurrency) is "-5", but that providers may choose to use a different value. The Green Button component allows the default multipliers for cost for gas and for electricity to be overridden if your provider uses a non-standard cost power-of-ten-multiplier.
 
-If the value is ever changed after Green Button data has been imported, the new value will apply to any new imported cost data. To force recalculation of previously-imported costs, run the *Recalculate Green Button Cost Statistics* action under Developer Tools -> Actions.
+If the value is ever changed after Green Button data has been imported, the new value will apply to any new imported cost data. To force recalculation of previously-imported costs, run the _Recalculate Green Button Cost Statistics_ action under Developer Tools -> Actions.
 
 ## Services/Actions
 
 There are several actions (services) related to the Green Button custom component available under **Developer Tools → Actions**. As of this writing, they are:
+
 - Log Green Button Meter Reading Intervals
 - Log Stored Green Button XML Info
 - Delete Green Button Statistics

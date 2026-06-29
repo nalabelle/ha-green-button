@@ -6,7 +6,7 @@ log_meter_reading_intervals:
 log_stored_xmls:
   name: Log Stored Green Button XML Info
   description: >
-    Log information about stored XML data in the config entry, including labels and date ranges. 
+    Log information about stored XML data in the config entry, including labels and date ranges.
     This helps diagnose why data might be missing after restart.
 
 delete_statistics:

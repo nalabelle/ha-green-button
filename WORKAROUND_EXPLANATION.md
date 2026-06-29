@@ -1,15 +1,19 @@
 # Monthly Increment Workaround for Mismatched Billing Periods
 
 ## Problem
+
 Enbridge's Green Button API returns XML with:
+
 - **UsageSummary**: Previous FINALIZED billing period (e.g., July 26 - Aug 24)
 - **IntervalReading**: Current IN-PROGRESS billing period (e.g., Aug 25 - Sep 26)
 
 When using `monthly_increment` allocation mode, only UsageSummary periods were used, causing:
+
 - Bars to appear at the previous billing period end (Aug 24)
 - Current billing period (Aug 25 - Sep 26) not shown
 
 ## Solution
+
 The workaround detects long IntervalReadings (≥7 days) that don't overlap with any UsageSummary and treats them as billing periods.
 
 ### Logic Flow
@@ -31,16 +35,20 @@ The workaround detects long IntervalReadings (≥7 days) that don't overlap with
 ### What Happens When Next Month's XML Arrives?
 
 #### Scenario: Current State (October 17)
+
 - **UsageSummary**: July 26 - Aug 24 (52 m³) → Bar at Aug 24
 - **IntervalReading**: Aug 25 - Sep 26 (54 m³) → Bar at Sep 26 (from workaround)
 
 #### Next Month (After September 26)
+
 Enbridge will provide:
+
 - **UsageSummary #1**: July 26 - Aug 24 (52 m³) → Bar at Aug 24
 - **UsageSummary #2**: Aug 25 - Sep 26 (54 m³) → Bar at Sep 26 (OFFICIAL)
 - **IntervalReading**: Sep 27 - Oct XX (XX m³) → Bar at Oct XX (from workaround)
 
 **The transition is seamless:**
+
 1. The workaround-created Sep 26 bar gets replaced by the official UsageSummary bar
 2. Both use the same date (Sep 26) and value (54 m³)
 3. New workaround bar appears for Oct period
@@ -70,12 +78,14 @@ Enbridge will provide:
 #### Function: `update_gas_statistics()`
 
 **Added:**
+
 - `periods_to_process` list to hold billing periods from both sources
 - Logic to scan IntervalReadings for long-duration readings
 - Overlap detection to prevent duplicates
 - Logging to show source of each billing period
 
 **Modified:**
+
 - Loop variable from `us` (UsageSummary) to tuple `(period_start, period_end, consumption_m3, source)`
 - Fallback logic now uses `period_start` instead of `us.start`
 
@@ -108,6 +118,7 @@ After implementing this workaround:
 ## Future Enhancements
 
 Potential improvements:
+
 1. Make MIN_BILLING_PERIOD_DAYS configurable
 2. Add user option to prefer IntervalReading over UsageSummary
 3. Detect and warn about value mismatches between sources
