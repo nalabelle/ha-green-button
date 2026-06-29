@@ -1,10 +1,10 @@
 """Tests for statistics metadata creation and unit handling."""
 
-import pytest
-from unittest.mock import MagicMock
+from typing import Any
+
+from homeassistant.components.recorder.models.statistics import StatisticMeanType
 
 from custom_components.green_button.statistics import create_metadata
-from homeassistant.components.recorder.models.statistics import StatisticMeanType
 
 
 class FakeEntity:
