@@ -70,7 +70,7 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], RestoreEntity
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._meter_reading_id = meter_reading_id
-        self._cached_native_value: float = 0.0  # Cache last imported statistics value
+        self._cached_native_value: float | None = None  # Cache last imported statistics value
 
         # Create a cleaner unique ID from the meter reading ID
         # Extract the last part after the final slash for a shorter identifier
@@ -90,7 +90,7 @@ class GreenButtonSensor(CoordinatorEntity[GreenButtonCoordinator], RestoreEntity
         )
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> float | None:
         """Return the last imported statistics sum value.
 
         Returns the cached value from the last statistics import. This prevents
@@ -384,7 +384,7 @@ class GreenButtonCostSensor(CoordinatorEntity[GreenButtonCoordinator], RestoreEn
     ) -> None:
         super().__init__(coordinator)
         self._meter_reading_id = meter_reading_id
-        self._cached_native_value: float = 0.0  # Initialize to 0 for Energy Dashboard
+        self._cached_native_value: float | None = None  # Start None to avoid flashing 0 on startup
 
         # Build unique id with cost suffix
         clean_id = meter_reading_id.split("/")[-1] if "/" in meter_reading_id else meter_reading_id
@@ -642,7 +642,7 @@ class GreenButtonGasSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEnti
     def __init__(self, coordinator: GreenButtonCoordinator, meter_reading_id: str) -> None:
         super().__init__(coordinator)
         self._meter_reading_id = meter_reading_id
-        self._cached_native_value: float = 0.0  # Initialize to 0 for Energy Dashboard
+        self._cached_native_value: float | None = None  # Start None to avoid flashing 0 on startup
         clean_id = meter_reading_id.split("/")[-1] if "/" in meter_reading_id else meter_reading_id
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{clean_id}_gas"
         # Simple name - Home Assistant will combine with device name since _attr_has_entity_name=True
@@ -659,7 +659,7 @@ class GreenButtonGasSensor(CoordinatorEntity[GreenButtonCoordinator], SensorEnti
         )
 
     @property
-    def native_value(self) -> float:
+    def native_value(self) -> float | None:
         """Return the last imported statistics sum value.
 
         Returns the cached value from the last statistics import. This prevents
