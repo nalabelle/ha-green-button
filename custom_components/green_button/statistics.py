@@ -840,6 +840,10 @@ class _ImportStatisticsTask(tasks.RecorderTask):
         )[1]
         if metadata is None:
             metadata = create_metadata(self.entity)
+        else:
+            # Ensure unit_of_measurement is correct — existing metadata may have
+            # a null/stale unit if it was created before the entity had one set.
+            metadata["unit_of_measurement"] = self.entity.native_unit_of_measurement
         success = statistics.import_statistics(instance, metadata, self.samples, self.table)
         if not success:
             recorder_helper.get_instance(self.hass).queue_task(self)
