@@ -96,6 +96,10 @@ def _make_espi_xml(
                   <espi:start>{interval_start}</espi:start>
                 </espi:interval>
                 <espi:IntervalReading>
+                  <espi:timePeriod>
+                    <espi:start>{interval_start}</espi:start>
+                    <espi:duration>{interval_duration}</espi:duration>
+                  </espi:timePeriod>
                   <espi:value>{reading_value}</espi:value>
                 </espi:IntervalReading>
               </espi:IntervalBlock>
@@ -225,6 +229,10 @@ class TestUsagePointWithMeterReading:
                       <espi:start>1719504000</espi:start>
                     </espi:interval>
                     <espi:IntervalReading>
+                      <espi:timePeriod>
+                        <espi:start>1719504000</espi:start>
+                        <espi:duration>86400</espi:duration>
+                      </espi:timePeriod>
                       <espi:value>1500</espi:value>
                     </espi:IntervalReading>
                   </espi:IntervalBlock>
@@ -263,7 +271,7 @@ class TestUsagePointWithMeterReading:
                 <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/ReadingType/01"/>
                 <atom:content type="xml">
                   <espi:ReadingType>
-                    <espi:commodity>1</espi:commodity>
+                    <espi:commodity>2</espi:commodity>
                     <espi:flowDirection>1</espi:flowDirection>
                     <espi:intervalLength>3600</espi:intervalLength>
                     <espi:powerOfTenMultiplier>-3</espi:powerOfTenMultiplier>
@@ -275,8 +283,8 @@ class TestUsagePointWithMeterReading:
               <atom:entry>
                 <atom:id>urn:uuid:mr-001</atom:id>
                 <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01"/>
+                <atom:link rel="up" href="RetailCustomer/cust001/UsagePoint/up001"/>
                 <atom:link rel="related" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/ReadingType/01"/>
-                <atom:link rel="related" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/IntervalBlock"/>
                 <atom:content type="xml">
                   <espi:MeterReading/>
                 </atom:content>
@@ -284,7 +292,7 @@ class TestUsagePointWithMeterReading:
               <atom:entry>
                 <atom:id>urn:uuid:ib-001</atom:id>
                 <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/IntervalBlock/01"/>
-                <atom:link rel="related" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01"/>
+                <atom:link rel="up" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01"/>
                 <atom:content type="xml">
                   <espi:IntervalBlock>
                     <espi:interval>
@@ -292,6 +300,10 @@ class TestUsagePointWithMeterReading:
                       <espi:start>1719504000</espi:start>
                     </espi:interval>
                     <espi:IntervalReading>
+                      <espi:timePeriod>
+                        <espi:start>1719504000</espi:start>
+                        <espi:duration>3600</espi:duration>
+                      </espi:timePeriod>
                       <espi:value>1500</espi:value>
                     </espi:IntervalReading>
                   </espi:IntervalBlock>
@@ -369,3 +381,112 @@ class TestDefaultUsagePoint:
         # (or the default empty meter reading)
         total_readings = sum(len(mr.interval_blocks) for mr in usage_points[0].meter_readings)
         assert total_readings == 0
+
+
+class TestFlatEspiStructure:
+    """Tests for DTE-style flat ESPI XML where IntervalBlock entries
+    are siblings of MeterReading entries (not nested inside them).
+
+    DTE Energy provides ESPI data where:
+    - UsagePoint, MeterReading, IntervalBlock, and ReadingType are all
+      sibling <atom:entry> elements at the feed level
+    - MeterReading links forward to IntervalBlock via rel="related"
+    - IntervalBlock links back to MeterReading via rel="up"
+    - The IntervalBlock entry content is <espi:IntervalBlock> directly
+      (not nested inside a MeterReading container)
+    """
+
+    FLAT_ESPI_XML = textwrap.dedent("""\
+        <?xml version="1.0" encoding="UTF-8"?>
+        <atom:feed xmlns:atom="http://www.w3.org/2005/Atom"
+                   xmlns:espi="http://naesb.org/espi">
+          <atom:entry>
+            <atom:id>urn:uuid:up-001</atom:id>
+            <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001"/>
+            <atom:link rel="related" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading"/>
+            <atom:content type="xml">
+              <espi:UsagePoint>
+                <espi:ServiceCategory><espi:kind>0</espi:kind></espi:ServiceCategory>
+              </espi:UsagePoint>
+            </atom:content>
+          </atom:entry>
+          <atom:entry>
+            <atom:id>urn:uuid:mr-001</atom:id>
+            <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01"/>
+            <atom:link rel="up" href="RetailCustomer/cust001/UsagePoint/up001"/>
+            <atom:link rel="related" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/ReadingType/01"/>
+            <atom:content type="xml">
+              <espi:MeterReading/>
+            </atom:content>
+          </atom:entry>
+          <atom:entry>
+            <atom:id>urn:uuid:ib-001</atom:id>
+            <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/IntervalBlock/01"/>
+            <atom:link rel="up" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01"/>
+            <atom:content type="xml">
+              <espi:IntervalBlock>
+                <espi:interval>
+                  <espi:duration>2678400</espi:duration>
+                  <espi:start>1719504000</espi:start>
+                </espi:interval>
+                <espi:IntervalReading>
+                  <espi:timePeriod>
+                    <espi:start>1719504000</espi:start>
+                    <espi:duration>2678400</espi:duration>
+                  </espi:timePeriod>
+                  <espi:value>150000</espi:value>
+                </espi:IntervalReading>
+              </espi:IntervalBlock>
+            </atom:content>
+          </atom:entry>
+          <atom:entry>
+            <atom:id>urn:uuid:rt-001</atom:id>
+            <atom:link rel="self" href="RetailCustomer/cust001/UsagePoint/up001/MeterReading/01/ReadingType/01"/>
+            <atom:content type="xml">
+              <espi:ReadingType>
+                <espi:commodity>1</espi:commodity>
+                <espi:flowDirection>1</espi:flowDirection>
+                <espi:intervalLength>2678400</espi:intervalLength>
+                <espi:powerOfTenMultiplier>-3</espi:powerOfTenMultiplier>
+                <espi:uom>72</espi:uom>
+                <espi:currency>840</espi:currency>
+              </espi:ReadingType>
+            </atom:content>
+          </atom:entry>
+        </atom:feed>
+    """)
+
+    def test_flat_interval_block_linked_to_meter_reading(self):
+        """IntervalBlock in flat ESPI should be linked to its MeterReading.
+
+        DTE provides IntervalBlock as a sibling entry (not nested inside
+        MeterReading). The parser must link them via rel="up" or href
+        prefix matching and extract the interval data.
+        """
+        feed = _parse_feed(self.FLAT_ESPI_XML)
+        usage_points = feed.to_usage_points()
+        assert len(usage_points) == 1
+        ups = usage_points[0]
+        assert len(ups.meter_readings) == 1, (
+            f"Expected 1 meter reading, got {len(ups.meter_readings)}"
+        )
+        mr = ups.meter_readings[0]
+        assert len(mr.interval_blocks) == 1, (
+            f"Expected 1 interval block, got {len(mr.interval_blocks)}"
+        )
+        ib = mr.interval_blocks[0]
+        assert len(ib.interval_readings) == 1
+        assert ib.interval_readings[0].value == 150000
+
+    def test_flat_monthly_interval_data_preserved(self):
+        """Monthly interval data (2678400s) from flat ESPI must be preserved.
+
+        The interval block should have the correct start time and duration
+        from the DTE-style flat structure.
+        """
+        feed = _parse_feed(self.FLAT_ESPI_XML)
+        ups = feed.to_usage_points()[0]
+        mr = ups.meter_readings[0]
+        ib = mr.interval_blocks[0]
+        assert ib.duration is not None
+        assert ib.duration.total_seconds() == 2678400
