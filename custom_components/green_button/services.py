@@ -183,7 +183,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:  # noqa: C901
                                     )
                             if up.usage_summaries:
                                 _LOGGER.info("        UsageSummaries: %d", len(up.usage_summaries))
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         _LOGGER.error("        Failed to parse XML: %s", e)
 
             _LOGGER.info("=" * 60)
@@ -635,7 +635,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:  # noqa: C901
                         )
                         _LOGGER.info("✅ Recalculated gas cost statistics for %s", entity_id)
                         recalculated_count += 1
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         _LOGGER.error(
                             "❌ Failed to recalculate gas cost statistics for %s: %s", entity_id, e
                         )
@@ -785,7 +785,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:  # noqa: C901
                             len(eligible_electric_mrs),
                         )
                         recalculated_count += 1
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         _LOGGER.error(
                             "❌ Failed to recalculate electricity cost statistics for %s: %s",
                             entity_id,

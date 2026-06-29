@@ -663,14 +663,14 @@ class EspiEntry:
                                 raw_val = float(val_el.text)
                                 val = raw_val * (10**power)
                                 consumption_m3 = float(val) if is_m3 else None
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         consumption_m3 = None
                     if total_cost is None:
                         # Fallback to billLastPeriod with implicit -3 scaling
                         try:
                             raw = us_entry.parse_child_text("espi:billLastPeriod", float)
                             total_cost = raw * (10**-3)
-                        except Exception:
+                        except Exception:  # noqa: BLE001
                             total_cost = 0.0
                     usage_summaries.append(
                         model.UsageSummary(
@@ -682,7 +682,7 @@ class EspiEntry:
                             consumption_m3=consumption_m3,
                         )
                     )
-                except Exception as ex:
+                except Exception as ex:  # noqa: BLE001
                     logger.warning("Failed to parse UsageSummary for %s: %s", self_href, ex)
 
         logger.debug(

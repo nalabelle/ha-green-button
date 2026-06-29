@@ -243,7 +243,7 @@ class GreenButtonCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                     # After migration, the data is already in permanent storage,
                     # so we continue below to load and process it
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 _LOGGER.warning("[CONFIG FLOW IMPORT] Failed to migrate temporary storage: %s", e)
 
         # LEGACY FALLBACK: Check for initial_xml from config flow (old method, for backwards compatibility)

@@ -268,7 +268,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=const.DOMAIN):
                     "[CONFIG FLOW] Successfully saved XML to temporary .storage/%s (will be migrated to permanent storage during setup)",
                     _get_temp_storage_key(config.unique_id),
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 _LOGGER.error(
                     "[CONFIG FLOW] Failed to save XML to temporary storage, falling back to config entry: %s",
                     e,

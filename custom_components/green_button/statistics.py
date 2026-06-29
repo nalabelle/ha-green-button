@@ -338,7 +338,7 @@ async def _get_all_existing_statistics(
         # Sort by start time
         result.sort(key=lambda s: s["start"])
         return result
-    except Exception:
+    except Exception:  # noqa: BLE001
         _LOGGER.warning(
             "Could not retrieve existing statistics for %s",
             statistic_id,
@@ -518,7 +518,7 @@ def _convert_to_kwh(value: float, source_unit: Any) -> float:
         else:
             # Enum value from UnitOfEnergy
             unit_str = str(source_unit).lower()
-    except Exception:  # pragma: no cover - defensive
+    except Exception:  # pragma: no cover - defensive  # noqa: BLE001
         unit_str = None
 
     if source_unit == UnitOfEnergy.WATT_HOUR or unit_str in {"watt-hour", "wh"}:
@@ -995,7 +995,7 @@ class _TruncateStatisticsAfterTask(tasks.RecorderTask):
                         "[%s] No metadata found when truncating; nothing to delete",
                         self.statistic_id,
                     )
-        except Exception:
+        except Exception:  # noqa: BLE001
             # Re-queue if recorder is not ready
             recorder_helper.get_instance(self.hass).queue_task(self)
             return
@@ -1877,7 +1877,7 @@ async def update_gas_statistics(  # noqa: C901
                     )
                     if existing_stats and existing_stats.get("change") is not None:
                         existing_sum = float(existing_stats["change"])  # type: ignore[assignment]
-                except Exception:
+                except Exception:  # noqa: BLE001
                     _LOGGER.debug(
                         "Unable to query existing sum for gas usage %s",
                         entity.entity_id,
