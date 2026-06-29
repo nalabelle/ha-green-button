@@ -253,10 +253,19 @@ class GreenButtonFeed:
         logger.debug("MeterReading %s has related hrefs: %s", mr_href, mr_related_hrefs)
 
         # Find related interval blocks for this meter reading
-        interval_blocks = mr_entry.find_related_entries(
-            "IntervalBlock",
-            mr_entry.create_interval_block_parser(reading_type),
-        )
+        interval_blocks: list[model.IntervalBlock] = []
+        for interval_block_entry in self.find_entries("IntervalBlock"):
+            interval_block_href = interval_block_entry.find_self_href()
+            for related_href in mr_related_hrefs:
+                if (
+                    interval_block_href == related_href
+                    or interval_block_href.startswith(related_href + "/")
+                    or related_href.startswith(interval_block_href + "/")
+                ):
+                    interval_blocks.extend(
+                        interval_block_entry.parse_interval_blocks(reading_type)
+                    )
+                    break
 
         logger.debug(
             "MeterReading %s found %d related IntervalBlocks",
@@ -311,9 +320,9 @@ class GreenButtonFeed:
 
                 # Check if this interval block relates back to our meter reading
                 if mr_href in ib_related_hrefs:
-                    parser = ib_entry.create_interval_block_parser(reading_type)
-                    interval_block = parser(ib_entry)
-                    matching_blocks.append(interval_block)
+                    matching_blocks.extend(
+                        ib_entry.parse_interval_blocks(reading_type)
+                    )
                     logger.debug(
                         "Matched IntervalBlock %s to MeterReading %s",
                         ib_entry.find_self_href(),
@@ -353,11 +362,21 @@ class EspiEntry:
         return hrefs
 
     def find_self_href(self) -> str:
-        """Find the entry's self HREF."""
+        """Find the entry's self HREF.
+
+        Falls back to the atom:id element when no rel="self" link is present.
+        """
         hrefs = self._find_link_hrefs("self")
-        if not hrefs:
-            raise EspiXmlParseError(f"No self link for entry:\n{self._pretty_print()}")
-        return hrefs[0]
+        if hrefs:
+            return hrefs[0]
+
+        id_elem = self._elem.find("./atom:id", _NAMESPACE_MAP)
+        if id_elem is not None and id_elem.text:
+            return id_elem.text
+
+        raise EspiXmlParseError(
+            f"No self link or id for entry:\n{self._pretty_print()}"
+        )
 
     def find_related_hrefs(self) -> list[str]:
         """Find the entry's related HREFs."""
@@ -425,7 +444,11 @@ class EspiEntry:
     def create_interval_block_parser(
         self, reading_type: model.ReadingType
     ) -> Callable[["EspiEntry"], model.IntervalBlock]:
-        """Create an IntervalBlock parser for the ReadingType."""
+        """Create an IntervalBlock parser for the ReadingType.
+
+        Deprecated: use parse_interval_blocks() to handle entries with multiple
+        IntervalBlock children.
+        """
 
         def parser(entry: EspiEntry) -> model.IntervalBlock:
             return model.IntervalBlock(
@@ -444,6 +467,34 @@ class EspiEntry:
             )
 
         return parser
+
+    def parse_interval_blocks(
+        self, reading_type: model.ReadingType
+    ) -> list[model.IntervalBlock]:
+        """Parse all IntervalBlock children of this entry."""
+        base_id = self.find_self_href()
+        xpath = f"./atom:content/espi:{self._type_tag}/espi:IntervalBlock"
+        block_elems = self._elem.findall(xpath, _NAMESPACE_MAP)
+
+        reading_parser = self.create_interval_reading_parser(reading_type)
+
+        def _parse_block(block_elem: ET.Element, index: int) -> model.IntervalBlock:
+            block_id = base_id if len(block_elems) == 1 else f"{base_id}#{index}"
+            return model.IntervalBlock(
+                id=block_id,
+                reading_type=reading_type,
+                start=_parse_child_text(
+                    block_elem, "./espi:interval/espi:start", _to_utc_datetime
+                ),
+                duration=_parse_child_text(
+                    block_elem, "./espi:interval/espi:duration", _to_timedelta
+                ),
+                interval_readings=_parse_child_elems(
+                    block_elem, "./espi:IntervalReading", reading_parser
+                ),
+            )
+
+        return [_parse_block(block, index) for index, block in enumerate(block_elems)]
 
     def to_reading_type(self) -> model.ReadingType:
         """Parse this entry as a ReadingType."""
@@ -466,13 +517,25 @@ class EspiEntry:
             "ReadingType",
             EspiEntry.to_reading_type,
         )
+        interval_blocks: list[model.IntervalBlock] = []
+        for interval_block_entry in self._root.find_entries("IntervalBlock"):
+            related_hrefs = interval_block_entry.find_related_hrefs()
+            self_href = self.find_self_href()
+            for related_href in related_hrefs:
+                if (
+                    related_href == self_href
+                    or self_href.startswith(related_href + "/")
+                    or related_href.startswith(self_href + "/")
+                ):
+                    interval_blocks.extend(
+                        interval_block_entry.parse_interval_blocks(reading_type)
+                    )
+                    break
+
         return model.MeterReading(
             id=self.find_self_href(),
             reading_type=reading_type,
-            interval_blocks=self.find_related_entries(
-                "IntervalBlock",
-                self.create_interval_block_parser(reading_type),
-            ),
+            interval_blocks=interval_blocks,
         )
 
     def to_usage_point(self) -> model.UsagePoint:

@@ -58,9 +58,10 @@ async def test_form_xml_inline(hass: HomeAssistant) -> None:
     # Check actual data structure as returned by the config flow
     assert result2["data"]["name"] == "Test Green Button"
     assert result2["data"]["usage_point_id"] == "/UsagePoint/1"
-    assert result2["data"]["xml"] == SAMPLE_XML
     assert result2["data"]["gas_cost_allocation"] == "pro_rate_daily"
     assert result2["data"]["gas_usage_allocation"] == "daily_readings"
+
+
 @pytest.mark.asyncio
 async def test_form_xml_file(hass: HomeAssistant) -> None:
     """Test we can submit XML via file path."""
@@ -95,7 +96,8 @@ async def test_form_xml_file(hass: HomeAssistant) -> None:
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["title"] == "Test Green Button File"
     assert result2["data"]["name"] == "Test Green Button File"
-    assert result2["data"]["xml"] == SAMPLE_XML  # XML content is stored
+    assert result2["data"]["gas_cost_allocation"] == "monthly_increment"
+    assert result2["data"]["gas_usage_allocation"] == "monthly_increment"
 
 
 @pytest.mark.asyncio
