@@ -176,14 +176,10 @@ class GreenButtonFeed:
                 interval_length = rt_entry.parse_child_text("espi:intervalLength", int)
 
                 if flow_direction == 1:  # Energy consumed
-                    # Skip daily summaries (intervalLength >= 86400 seconds = 24 hours)
-                    if interval_length >= 86400:
-                        logger.debug(
-                            "Skipping daily summary ReadingType: %s (intervalLength=%d seconds)",
-                            rt_href,
-                            interval_length,
-                        )
-                        continue
+                    # Accept all consumption intervals (sub-daily, daily, and monthly).
+                    # Some utilities (e.g. DTE Energy) provide monthly billing data
+                    # with intervalLength=2678400 (~31 days) rather than hourly/15-min.
+                    pass
 
                     reading_type = rt_entry.to_reading_type()
                     consumed_energy_reading_types.append((rt_entry, reading_type))
@@ -578,12 +574,13 @@ class EspiEntry:
                                 flow_direction = rt_entry.parse_child_text("espi:flowDirection", int)
                                 interval_length = rt_entry.parse_child_text("espi:intervalLength", int)
 
-                                # For electricity: include sub-daily consumption (< 86400)
+                                # For electricity: include all consumption intervals
+                                # (sub-daily, daily, monthly — e.g. DTE provides monthly
+                                # billing data with intervalLength=2678400)
                                 # For gas: include daily consumption (== 86400)
                                 if (
                                     sensor_device_class == sensor.SensorDeviceClass.ENERGY
                                     and flow_direction == 1
-                                    and interval_length < 86400
                                 ) or (
                                     sensor_device_class == sensor.SensorDeviceClass.GAS
                                     and flow_direction == 1
